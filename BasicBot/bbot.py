@@ -35,15 +35,18 @@ def getwiki(s):
 		return wikitext2
 	# Обрабатываем исключение, которое мог вернуть модуль wikipedia при запросе
 	except Exception as e:
+		print('Ашипкааа!!!!11рас')
 		return 'Что-то пошло не так((('
 # Функция, обрабатывающая команду /start
 @bbot.message_handler(commands=["start"])
 def start(m, res=False):
 	bbot.send_message(m.chat.id, 'Напиши мне слово и я тебя удивлю... Но это не точно))')
+	print('Bbot get started...')
 
 # Получение сообщений от юзера
 @bbot.message_handler(content_types=["text"])
 def handle_text(message):
 	bbot.send_message(message.chat.id, getwiki(message.text))
+	print('Бот Что-то написал.')
 
 bbot.polling(none_stop=True, interval=0)
