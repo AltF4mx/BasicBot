@@ -2,6 +2,8 @@ import logging
 from telethon import TelegramClient
 import config
 
+from tortoise import Tortoise
+
 class Bot(TelegramClient):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -15,7 +17,18 @@ logging.basicConfig(level=logging.INFO)
 
 import app.handlers
 
+TORTOISE_ORM = {
+    'connections': {'default': config.DATABASE_URI},
+    'apps': {
+        'app': {
+            'models': ['app.models', 'aerich.models'],
+            'default_connection': 'default',
+        },
+    },
+}
+
 async def start():
+    await Tortoise.init(config=TORTOISE_ORM)
     # Подключиться к серверу
     await bot.connect()
     
@@ -26,5 +39,4 @@ async def start():
     await bot.run_until_disconnected()
     
 def run():
-    bot.loop.run_until_complete(start())
-
+    bot.loop.run_until_complete(start())    
