@@ -7,7 +7,8 @@ from app import bot
 from app.utils import reload_admins
 from app.utils import admin_command
 from app.utils import admin_moderate_command
-from app.models import Chat
+from app.utils import update_chat_member
+from app.models import Chat, ChatMember
 
 @bot.on(events.ChatAction())
 async def on_join(event: events.ChatAction.Event):
@@ -64,3 +65,20 @@ async def unban_command(chat_id: int, user_id: int, mention: str):
 async def kick_command(chat_id: int, user_id: int, mention: str):
     await bot.kick_participant(chat_id, user_id)
     return f'{mention}, до свидания...'
+
+@admin_moderate_command('warn')
+async def warn_command(chat_id: int, user_id: int, mention: str):
+    member = await ChatMember.get_or_none(chat_id=chat_id, user_id=user_id)
+    warns = member.warns if member else 0
+    warns = min(warns + 1, 3)
+    await update_chat_member(chat_id, user_id, warns=warns)
+    
+    if warns == 3:
+        try:
+            await bot.edit_permissions(chat_id, user_id, send_messages=False)
+        except ChatAdminRequiredError:
+            return f'Участник {mention} получил 3 предупреждения. Я бы его замьютил,' \
+                   f'но мне недостает прав...'
+        else:
+            return f'Участник {mention} получил 3 предупреждения и теперь должен помолчать.'
+    return f'Участнику {mention} выдано предупреждение ({warns}/3)'

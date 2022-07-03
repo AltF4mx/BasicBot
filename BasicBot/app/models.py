@@ -12,3 +12,4 @@ class ChatMember(Model):
     user_id = fields.BigIntField()
     chat_id = fields.BigIntField()
     is_admin = fields.BooleanField(default=False)
+    warns = fields.IntField(default=0)
