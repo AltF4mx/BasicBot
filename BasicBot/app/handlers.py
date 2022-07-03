@@ -49,3 +49,13 @@ async def mute_command(chat_id: int, user_id: int, mention: str):
 async def unmute_command(chat_id: int, user_id: int, mention:str):
     await bot.edit_permissions(chat_id, user_id, send_messages=True)
     return f'Теперь {mention} может говорить, послушаем же его...'
+
+@admin_moderate_command('ban')
+async def ban_command(chat_id: int, user_id: int, mention: str):
+    await bot.edit_permissions(chat_id, user_id, view_messages=False)
+    return f'{mention} прощай...'
+
+@admin_moderate_command('unban')
+async def unban_command(chat_id: int, user_id: int, mention: str):
+    await bot.edit_permissions(chat_id, user_id, view_messages=True)
+    return f'{mention} с возвращением!'
