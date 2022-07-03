@@ -4,6 +4,7 @@ from telethon import events
 from telethon.errors import ChatAdminRequiredError
 from telethon.tl.custom import Message
 from telethon.tl.types import ChannelParticipantsAdmins
+from telethon.tl.types import User
 
 from app import bot
 from app.models import Chat, ChatMember
@@ -39,5 +40,35 @@ def admin_command(command: str):
                 await func(event)
             except ChatAdminRequiredError:
                 await event.respond('Упс... А я не админ...')
+                
+        return handle
+    return decorator
+
+def get_mention(user: User):
+    name = user.first_name
+    if user.last_name:
+        user += ' ' + user.last_name
+    return f'<a href="tg://user?id={user.id}">{name}</a>'
+
+def admin_moderate_command(command: str):
+    def decorator(func):
+        @admin_command(command)
+        async def handle(event: Message):
+            if not event.is_reply:
+                await event.respond('Ответь этой командой на сообщение пользователя, по-братски...')
+                return
+            
+            reply_to = await event.get_reply_message()
+            
+            if reply_to.sender.bot:
+                await event.respond('Бота не трогай, ладно?')
+                return
+            if await is_admin(event.chat.id, reply_to.sender.id):
+                await event.respond('Не рекомендую делать это с админом...')
+                return
+            
+            result = await func(event.chat.id, reply_to.sender.id, get_mention(reply_to.sender))
+            await event.respond(result)
+            
         return handle
     return decorator

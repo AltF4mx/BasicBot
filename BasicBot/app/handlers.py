@@ -4,7 +4,9 @@ from tortoise import timezone
 from telethon.tl.custom import Message
 
 from app import bot
-from app.utils import reload_admins, admin_command
+from app.utils import reload_admins
+from app.utils import admin_command
+from app.utils import admin_moderate_command
 from app.models import Chat
 
 @bot.on(events.ChatAction())
@@ -37,3 +39,13 @@ async def new_message(event: Message):
 @admin_command('greet')
 async def greet_command(event: Message):
     await event.respond('Привет, хозяин!')
+
+@admin_moderate_command('mute')
+async def mute_command(chat_id: int, user_id: int, mention: str):
+    await bot.edit_permissions(chat_id, user_id, send_messages=False)
+    return f'{mention} помолчи немного...'
+
+@admin_moderate_command('unmute')
+async def unmute_command(chat_id: int, user_id: int, mention:str):
+    await bot.edit_permissions(chat_id, user_id, send_messages=True)
+    return f'Теперь {mention} может говорить, послушаем же его...'
