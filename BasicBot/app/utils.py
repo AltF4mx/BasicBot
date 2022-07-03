@@ -1,5 +1,8 @@
 from tortoise import timezone
 
+from telethon import events
+from telethon.errors import ChatAdminRequiredError
+from telethon.tl.custom import Message
 from telethon.tl.types import ChannelParticipantsAdmins
 
 from app import bot
@@ -23,3 +26,18 @@ async def reload_admins(chat_id):
     chat.last_admins_update = timezone.now()
     await chat.save()
 
+def admin_command(command: str):
+    def decorator(func):
+        pattern = f'(?i)^/{command}$'
+        @bot.on(events.NewMessage(pattern=pattern, func=lambda e: e.is_group))
+        async def handle(event: Message):
+            if not await is_admin(event.chat.id, event.sender.id):
+                await event.respond('Не админ, не командуй!))')
+                return
+    
+            try:
+                await func(event)
+            except ChatAdminRequiredError:
+                await event.respond('Упс... А я не админ...')
+        return handle
+    return decorator

@@ -4,7 +4,7 @@ from tortoise import timezone
 from telethon.tl.custom import Message
 
 from app import bot
-from app.utils import reload_admins
+from app.utils import reload_admins, admin_command
 from app.models import Chat
 
 @bot.on(events.ChatAction())
@@ -34,3 +34,6 @@ async def new_message(event: Message):
     if timezone.now() - chat.last_admins_update > timedelta(hours=1):
         await reload_admins(event.chat.id)
 
+@admin_command('greet')
+async def greet_command(event: Message):
+    await event.respond('Привет, хозяин!')
