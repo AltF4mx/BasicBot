@@ -82,3 +82,20 @@ async def warn_command(chat_id: int, user_id: int, mention: str):
         else:
             return f'Участник {mention} получил 3 предупреждения и теперь должен помолчать.'
     return f'Участнику {mention} выдано предупреждение ({warns}/3)'
+
+@admin_moderate_command('unwarn')
+async def unwarn_command(chat_id: int, user_id: int, mention: str):
+    member = await ChatMember.get_or_none(chat_id=chat_id, user_id=user_id)
+    warns = member.warns if member else 0
+    if warns == 0:
+        return f'Эмм, так у {mention} нечего отменять...'
+    warns -= 1
+    await update_chat_member(chat_id, user_id, warns=warns)
+    if warns == 2:
+        try:
+            await bot.edit_permissions(chat_id, user_id, send_messages=True)
+        except ChatAdminRequiredError:
+            return f'Предупреждение участнику {mention} отменено ({warns}/3). Разбаньте его кто-нибудь...'
+        else:
+            return f'Предупреждение участнику {mention} отменено ({warns}/3). Так уж и быть, разбаню.'
+    return f'Предупреждение участнику {mention} отменено ({warns}/3).'
