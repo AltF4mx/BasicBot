@@ -3,6 +3,7 @@ from datetime import timedelta
 from tortoise import timezone
 from telethon.tl.custom import Message
 from telethon.tl.custom import Button
+from dirt_tongue import is_dirt
 
 from app import bot
 from app.utils import reload_admins
@@ -42,6 +43,8 @@ async def new_message(event: Message):
     chat = await Chat.get(id=event.chat.id)
     if timezone.now() - chat.last_admins_update > timedelta(hours=1):
         await reload_admins(event.chat.id)
+    if is_dirt(event.text):
+        await event.reply('Ты че, ска?!!')
 
 @admin_command('greet')
 async def greet_command(event: Message):
