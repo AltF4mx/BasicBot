@@ -2,6 +2,7 @@ from telethon import events
 from datetime import timedelta
 from tortoise import timezone
 from telethon.tl.custom import Message
+from telethon.tl.custom import Button
 
 from app import bot
 from app.utils import reload_admins
@@ -14,8 +15,13 @@ from app.models import Chat, ChatMember
 async def on_join(event: events.ChatAction.Event):
     if event.is_group and event.user_added and event.user_id == bot.me.id:
         await bot.send_message(event.chat.id, 'Всем привет!')
-        await bot.send_message(event.chat.id, 'Я ' + bot.me.first_name + '!')
+        await bot.send_message(event.chat.id, 'Я ' + \
+        f'<a href="tg://user?id={bot.me.id}">{bot.me.first_name}</a>' + '!')
+        
         await bot.send_message(event.chat.id, 'Я послежу тут за вами немного ;)')
+        await bot.send_message(event.chat.id, 'Для получения справки по командами нажмите кнопку внизу.', \
+        buttons=Button.text('/help', resize=True, single_use=True))
+        
         chat = await Chat.get_or_none(id=event.chat.id)
         if chat is None:
             chat = Chat(id=event.chat.id)
@@ -40,6 +46,15 @@ async def new_message(event: Message):
 @admin_command('greet')
 async def greet_command(event: Message):
     await event.respond('Привет, хозяин!')
+
+@admin_command('help')
+async def show_help(event: Message):
+    text = "Вы можете использовать следующие команды, отвечая на сообщения пользователя:\n \
+    /mute и /unmute - запретить/разрешить пользователю писать;\n \
+    /ban и /unban - забанить/разбанить пользователя;\n \
+    /kick - исключить пльзователя из чата;\n \
+    /warn и /unwarn - предупредить/снять предупреждение с пользователя.\n"
+    await bot.send_message(event.chat_id, text)
 
 @admin_moderate_command('mute')
 async def mute_command(chat_id: int, user_id: int, mention: str):

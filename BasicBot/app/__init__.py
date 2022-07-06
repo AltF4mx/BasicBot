@@ -38,5 +38,6 @@ async def start():
     # Начать получать апдейты от Телеграма и запустить все хендлеры
     await bot.run_until_disconnected()
     
+    
 def run():
     bot.loop.run_until_complete(start())    
