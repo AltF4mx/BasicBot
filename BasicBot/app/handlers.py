@@ -43,7 +43,8 @@ async def new_message(event: Message):
     chat = await Chat.get(id=event.chat.id)
     if timezone.now() - chat.last_admins_update > timedelta(hours=1):
         await reload_admins(event.chat.id)
-    if is_dirt(event.text):
+    mat_filter = is_dirt()
+    if mat_filter(event.text):
         await event.reply('Ты че, ска?!!')
 
 @admin_command('greet')
