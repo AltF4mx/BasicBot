@@ -3,7 +3,6 @@ from datetime import timedelta
 from tortoise import timezone
 from telethon.tl.custom import Message
 from telethon.tl.custom import Button
-from dirt_tongue import is_dirt
 
 from app import bot
 from app.utils import reload_admins
@@ -11,6 +10,7 @@ from app.utils import admin_command
 from app.utils import admin_moderate_command
 from app.utils import update_chat_member
 from app.models import Chat, ChatMember
+from app.slang_checker import RegexpProc
 
 @bot.on(events.ChatAction())
 async def on_join(event: events.ChatAction.Event):
@@ -43,8 +43,8 @@ async def new_message(event: Message):
     chat = await Chat.get(id=event.chat.id)
     if timezone.now() - chat.last_admins_update > timedelta(hours=1):
         await reload_admins(event.chat.id)
-    mat_filter = is_dirt()
-    if mat_filter(event.text):
+    
+    if RegexpProc.test(event.text):
         await event.reply('Ты че, ска?!!')
 
 @admin_command('greet')
