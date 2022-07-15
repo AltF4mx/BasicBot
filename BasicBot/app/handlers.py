@@ -9,8 +9,9 @@ from app.utils import reload_admins
 from app.utils import admin_command
 from app.utils import admin_moderate_command
 from app.utils import update_chat_member
-from app.models import Chat, ChatMember
-from app.slang_checker import RegexpProc
+from app.utils import upload_words_from_json
+from app.models import Chat, ChatMember, Slang
+from app.slang_checker import RegexpProc, PymorphyProc
 
 @bot.on(events.ChatAction())
 async def on_join(event: events.ChatAction.Event):
@@ -37,12 +38,23 @@ async def greet(event: events.ChatAction.Event):
 async def reload_command(event: Message):
     await reload_admins(event.chat.id)
     await event.respond('Список админов группы обновлен.')
+    
+@bot.on(events.NewMessage(func=lambda e: e.text.lower() == '/uplwords' and e.is_group))
+async def upload_words(event: Message):
+    await upload_words_from_json()
+    await event.respond('Список ненормативных слов загружен в базу.')
+
 
 @bot.on(events.NewMessage(func=lambda e: e.is_group))
 async def new_message(event: Message):
     chat = await Chat.get(id=event.chat.id)
     if timezone.now() - chat.last_admins_update > timedelta(hours=1):
         await reload_admins(event.chat.id)
+    
+    word_list = await Slang.all().values_list('word', flat=True)
+    
+    if PymorphyProc.test(event.text, word_list):
+        await event.reply('Заткнись')
     
     if RegexpProc.test(event.text):
         await event.reply('Ты че, ска?!!')

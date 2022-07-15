@@ -1,3 +1,5 @@
+import json
+
 from tortoise import timezone
 
 from telethon import events
@@ -7,7 +9,18 @@ from telethon.tl.types import ChannelParticipantsAdmins
 from telethon.tl.types import User
 
 from app import bot
-from app.models import Chat, ChatMember
+from app.models import Chat, ChatMember, Slang
+
+async def upload_words_from_json():
+    with open("./word_data.json", 'r') as w:
+        words = json.load(w)
+        for item in words:
+            await update_slang(word=item['fields']['word'])
+
+async def update_slang(word: str):
+    await Slang.update_or_create(word=word)
+    print(f'слово {word} загружено')
+
 
 async def update_chat_member(chat_id: int, user_id: int, **kwargs):
     await ChatMember.update_or_create(chat_id=chat_id, user_id=user_id, defaults=kwargs)
