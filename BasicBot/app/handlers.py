@@ -1,5 +1,4 @@
 from telethon import events
-from telethon.events import StopPropagation
 from datetime import timedelta
 from tortoise import timezone
 from telethon.tl.custom import Message
