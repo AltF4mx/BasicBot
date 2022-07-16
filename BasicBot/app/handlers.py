@@ -10,7 +10,7 @@ from app.utils import admin_command
 from app.utils import admin_moderate_command
 from app.utils import update_chat_member
 from app.utils import upload_words_from_json
-from app.models import Chat, ChatMember
+from app.models import Chat, ChatMember, Slang
 from app.slang_checker import RegexpProc, PymorphyProc, get_words
 
 @bot.on(events.ChatAction())
@@ -68,7 +68,7 @@ async def greet_command(event: Message):
     
 @admin_command('listword')
 async def show_list_word(event: Message):
-    word_list = await Slang.all().values_list('word', flat=True)
+    word_list = await get_words()
     await event.respond(f'В списке {len(word_list)} слов(а).')
     await event.respond('Введите начальные буквы в ответном сообщении для вывода ограниченного количества слов:')
     
@@ -78,6 +78,12 @@ async def show_list_word(event: Message):
             reply_to = await event.get_reply_message()
             if reply_to.sender.bot:
                 word_dict_cut = await Slang.filter(word__startswith=event.text.lower()).values('word')
+                
+                if len(word_dict_cut) == 0:
+                    await event.respond(f'В списке нет слов, начинающихся на "{event.text}"')
+                    bot.remove_event_handler(word_list_filter, events.NewMessage)
+                    return
+                
                 word_list_cut = []
                 for item in word_dict_cut:
                     word_list_cut.append(item['word'])

@@ -47,6 +47,7 @@ class PymorphyProc(object):
 
 async def get_words():
     PymorphyProc.save_word_list(await Slang.all().values_list('word', flat=True))
+    return await Slang.all().values_list('word', flat=True)
 
 class RegexpProc(object):
     
