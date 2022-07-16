@@ -2,25 +2,32 @@ import re
 
 import pymorphy2
 
+from app.models import Slang
+
 word_pattern = r'[А-яA-z0-9\-]+'
 
 class PymorphyProc(object):
 
     morph = pymorphy2.MorphAnalyzer()
+    word_list = []
 
     @staticmethod
-    def test(text, word_list):
-        return len([w for w in PymorphyProc._gen(text, word_list)])
+    def save_word_list(word_list: list):
+        PymorphyProc.word_list = word_list
+        
+    @staticmethod
+    def test(text: str):
+        return len([w for w in PymorphyProc._gen(text)])
 
     @staticmethod
-    def replace(text, repl='[censored]'):
+    def replace(text: str, repl='[censored]'):
         words = {}
         for word in PymorphyProc._gen(text):
             text = text.replace(word, repl)
         return text
 
     @staticmethod
-    def wrap(text, wrap=('<span style="color:red;">', '</span>',)):
+    def wrap(text: str, wrap=('<span style="color:red;">', '</span>',)):
         words = {}
         for word in PymorphyProc._gen(text):
             words[word] = u'%s%s%s' % (wrap[0], word, wrap[1],)
@@ -29,14 +36,17 @@ class PymorphyProc(object):
         return text
 
     @staticmethod
-    def _gen(text, word_list):
+    def _gen(text: str):
         for word in re.findall(word_pattern, text):
             if len(word) < 3:
                 continue
             normal_word = PymorphyProc.morph.parse(word.lower())[0].normal_form
-            if normal_word in word_list:
+            if normal_word in PymorphyProc.word_list:
                 #print normal_word.encode('1251'), word.encode('1251')
                 yield word
+
+async def get_words():
+    PymorphyProc.save_word_list(await Slang.all().values_list('word', flat=True))
 
 class RegexpProc(object):
     
@@ -82,15 +92,15 @@ class RegexpProc(object):
     regexp = re.compile(PATTERN_1 + PATTERN_2, re.U | re.I)
 
     @staticmethod
-    def test(text):
+    def test(text: str):
         return bool(RegexpProc.regexp.findall(text))
 
     @staticmethod
-    def replace(text, repl='[censored]'):
+    def replace(text: str, repl='[censored]'):
         return RegexpProc.regexp.sub(repl, text)
 
     @staticmethod
-    def wrap(text, wrap=('<span style="color:red;">', '</span>',)):
+    def wrap(text: str, wrap=('<span style="color:red;">', '</span>',)):
         words = {}
         for word in re.findall(word_pattern, text):
             if len(word) < 3:

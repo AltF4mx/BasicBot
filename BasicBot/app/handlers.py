@@ -10,8 +10,8 @@ from app.utils import admin_command
 from app.utils import admin_moderate_command
 from app.utils import update_chat_member
 from app.utils import upload_words_from_json
-from app.models import Chat, ChatMember, Slang
-from app.slang_checker import RegexpProc, PymorphyProc
+from app.models import Chat, ChatMember
+from app.slang_checker import RegexpProc, PymorphyProc, get_words
 
 @bot.on(events.ChatAction())
 async def on_join(event: events.ChatAction.Event):
@@ -53,12 +53,11 @@ async def new_message(event: Message):
     if timezone.now() - chat.last_admins_update > timedelta(hours=1):
         await reload_admins(event.chat.id)
     
-    word_list = await Slang.all().values_list('word', flat=True)
-    
-    if PymorphyProc.test(event.text, word_list):
+    await get_words()
+    if PymorphyProc.test(event.text):
         member = await ChatMember.get_or_none(chat_id=event.chat.id, user_id=event.sender.id)
         if not member or not member.is_admin:
-            await event.reply('Заткнись')
+            await event.reply('Ты че, ска?!!')
     
 #    if RegexpProc.test(event.text):
 #        await event.reply('Ты че, ска?!!')
