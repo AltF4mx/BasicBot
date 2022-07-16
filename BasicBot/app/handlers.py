@@ -1,4 +1,5 @@
 from telethon import events
+from telethon.events import StopPropagation
 from datetime import timedelta
 from tortoise import timezone
 from telethon.tl.custom import Message
@@ -32,7 +33,9 @@ async def on_join(event: events.ChatAction.Event):
 
 @bot.on(events.ChatAction(func=lambda e: (e.user_added or e.user_joined) and e.user_id != bot.me.id))
 async def greet(event: events.ChatAction.Event):
-    await event.respond('Привет, ' + event.user.first_name + ', веди себя хорошо!')
+    await event.respond('Привет, ' + \
+                        f'<a href="tg://user?id={event.user.id}">{event.user.first_name}</a>' + \
+                        ', веди себя хорошо!')
 
 @bot.on(events.NewMessage(func=lambda e: e.text.lower() == '/reload' and e.is_group))
 async def reload_command(event: Message):
@@ -54,14 +57,38 @@ async def new_message(event: Message):
     word_list = await Slang.all().values_list('word', flat=True)
     
     if PymorphyProc.test(event.text, word_list):
-        await event.reply('Заткнись')
+        member = await ChatMember.get_or_none(chat_id=event.chat.id, user_id=event.sender.id)
+        if not member or not member.is_admin:
+            await event.reply('Заткнись')
     
-    if RegexpProc.test(event.text):
-        await event.reply('Ты че, ска?!!')
+#    if RegexpProc.test(event.text):
+#        await event.reply('Ты че, ска?!!')
 
 @admin_command('greet')
 async def greet_command(event: Message):
     await event.respond('Привет, хозяин!')
+    
+@admin_command('listword')
+async def show_list_word(event: Message):
+    word_list = await Slang.all().values_list('word', flat=True)
+    await event.respond(f'В списке {len(word_list)} слов(а).')
+    await event.respond('Введите начальные буквы в ответном сообщении для вывода ограниченного количества слов:')
+    
+    @bot.on(events.NewMessage(func=lambda e: e.is_group))
+    async def word_list_filter(event: Message):
+        if event.is_reply:
+            reply_to = await event.get_reply_message()
+            if reply_to.sender.bot:
+                word_dict_cut = await Slang.filter(word__startswith=event.text.lower()).values('word')
+                word_list_cut = []
+                for item in word_dict_cut:
+                    word_list_cut.append(item['word'])
+                
+                await event.respond(', '.join(word_list_cut))
+                await event.respond('Удалить слово можно при помощи команды /delword.')
+                await event.respond('Добавить слово можно при помощи команды /addword.')
+                
+                bot.remove_event_handler(word_list_filter, events.NewMessage)
 
 @admin_command('help')
 async def show_help(event: Message):
