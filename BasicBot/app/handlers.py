@@ -1,3 +1,5 @@
+import pymorphy2
+
 from telethon import events
 from datetime import timedelta
 from tortoise import timezone
@@ -10,6 +12,7 @@ from app.utils import admin_command
 from app.utils import admin_moderate_command
 from app.utils import update_chat_member
 from app.utils import upload_words_from_json
+from app.utils import update_slang
 from app.models import Chat, ChatMember, Slang
 from app.slang_checker import RegexpProc, PymorphyProc, get_words
 
@@ -94,6 +97,22 @@ async def show_list_word(event: Message):
                 
                 bot.remove_event_handler(word_list_filter, events.NewMessage)
 
+@admin_command('addword')
+async def add_word(event: Message):
+    await event.respond('В ответном сообщении напишите слово, которое нужно добавить.')
+    
+    @bot.on(events.NewMessage(func=lambda e: e.is_group))
+    async def normalise_and_load(event: Message):
+        if event.is_reply:
+            reply_to = await event.get_reply_message()
+            if reply_to.sender.bot:
+                morph = pymorphy2.MorphAnalyzer()
+                normal_word = morph.parse(event.text.lower())[0].normal_form
+                await update_slang(normal_word)
+                await event.respond(f'Слово {event.text} добавлено в словарь.')
+                
+                bot.remove_event_handler(normalise_and_load, events.NewMessage)
+                
 @admin_command('help')
 async def show_help(event: Message):
     text = "Вы можете использовать следующие команды, отвечая на сообщения пользователя:\n \
