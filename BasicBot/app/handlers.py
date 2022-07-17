@@ -17,7 +17,7 @@ from app.utils import update_slang
 from app.utils import del_from_slang
 from app.models import Chat, ChatMember, Slang
 from app.slang_checker import RegexpProc, PymorphyProc, get_words
-from app.moderate import warn
+from app.moderate import warn, unwarn
 
 @bot.on(events.ChatAction())
 async def on_join(event: events.ChatAction.Event):
@@ -183,17 +183,4 @@ async def warn_command(chat_id: int, user_id: int, mention: str):
 
 @admin_moderate_command('unwarn')
 async def unwarn_command(chat_id: int, user_id: int, mention: str):
-    member = await ChatMember.get_or_none(chat_id=chat_id, user_id=user_id)
-    warns = member.warns if member else 0
-    if warns == 0:
-        return f'Эмм, так у {mention} нечего отменять...'
-    warns -= 1
-    await update_chat_member(chat_id, user_id, warns=warns)
-    if warns == 3:
-        try:
-            await bot.edit_permissions(chat_id, user_id, send_messages=True)
-        except ChatAdminRequiredError:
-            return f'Предупреждение участнику {mention} отменено ({warns}/5). Разбаньте его кто-нибудь...'
-        else:
-            return f'Предупреждение участнику {mention} отменено ({warns}/5). Так уж и быть, разбаню.'
-    return f'Предупреждение участнику {mention} отменено ({warns}/5).'
+    return await unwarn(chat_id, user_id, mention)
