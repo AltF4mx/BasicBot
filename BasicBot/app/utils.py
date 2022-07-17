@@ -21,6 +21,14 @@ async def update_slang(word: str):
     await Slang.update_or_create(word=word)
     print(f'слово {word} загружено')
 
+async def del_from_slang(word: str):
+    if not await Slang.filter(word=word).exists():
+        return False
+    try:
+        await Slang.filter(word=word).delete()
+        return True
+    except:
+        return False
 
 async def update_chat_member(chat_id: int, user_id: int, **kwargs):
     await ChatMember.update_or_create(chat_id=chat_id, user_id=user_id, defaults=kwargs)

@@ -13,6 +13,7 @@ from app.utils import admin_moderate_command
 from app.utils import update_chat_member
 from app.utils import upload_words_from_json
 from app.utils import update_slang
+from app.utils import del_from_slang
 from app.models import Chat, ChatMember, Slang
 from app.slang_checker import RegexpProc, PymorphyProc, get_words
 
@@ -112,6 +113,24 @@ async def add_word(event: Message):
                 await event.respond(f'Слово {event.text} добавлено в словарь.')
                 
                 bot.remove_event_handler(normalise_and_load, events.NewMessage)
+
+@admin_command('delword')
+async def del_word(event: Message):
+    await event.respond('В ответном сообщении напишите слово, которое хотите удалить.')
+    
+    @bot.on(events.NewMessage(func=lambda e: e.is_group))
+    async def lower_and_del(event: Message):
+        if event.is_reply:
+            reply_to = await event.get_reply_message()
+            if reply_to.sender.bot:
+                lower_word = event.text.lower()
+                del_result = await del_from_slang(lower_word)
+                if del_result:
+                    await event.respond(f'Слово "{event.text}" удалено из словаря.')
+                else:
+                    await event.respond(f'В словаре нет слова "{event.text}".')
+        
+                bot.remove_event_handler(lower_and_del, events.NewMessage)
                 
 @admin_command('help')
 async def show_help(event: Message):
