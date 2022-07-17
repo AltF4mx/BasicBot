@@ -1,4 +1,5 @@
 import json
+import logging
 
 from tortoise import timezone
 
@@ -19,7 +20,7 @@ async def upload_words_from_json():
 
 async def update_slang(word: str):
     await Slang.update_or_create(word=word)
-    print(f'слово {word} загружено')
+    logging.info(f'слово {word} загружено')
 
 async def del_from_slang(word: str):
     if not await Slang.filter(word=word).exists():

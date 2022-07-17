@@ -85,6 +85,7 @@ async def show_list_word(event: Message):
                 
                 if len(word_dict_cut) == 0:
                     await event.respond(f'В списке нет слов, начинающихся на "{event.text}"')
+                    await event.respond('Добавить слово можно при помощи команды /addword.')
                     bot.remove_event_handler(word_list_filter, events.NewMessage)
                     return
                 
@@ -92,7 +93,8 @@ async def show_list_word(event: Message):
                 for item in word_dict_cut:
                     word_list_cut.append(item['word'])
                 
-                await event.respond(', '.join(word_list_cut))
+                await bot.send_message(event.sender_id, ', '.join(word_list_cut))
+                await event.respond('Список слов направлен Вам в ЛС.')
                 await event.respond('Удалить слово можно при помощи команды /delword.')
                 await event.respond('Добавить слово можно при помощи команды /addword.')
                 
@@ -138,8 +140,11 @@ async def show_help(event: Message):
     /mute и /unmute - запретить/разрешить пользователю писать;\n \
     /ban и /unban - забанить/разбанить пользователя;\n \
     /kick - исключить пльзователя из чата;\n \
-    /warn и /unwarn - предупредить/снять предупреждение с пользователя.\n"
-    await bot.send_message(event.chat_id, text)
+    /warn и /unwarn - предупредить/снять предупреждение с пользователя;\n \
+    /listword - вывести список запрещенных слов в словаре;\n \
+    /addword и /delword - добавить/удалить запрещенное слово из словаря."
+    await bot.send_message(event.sender_id, text)
+    await event.respond('Список команд направлен Вам в ЛС.')
 
 @admin_moderate_command('mute')
 async def mute_command(chat_id: int, user_id: int, mention: str):
