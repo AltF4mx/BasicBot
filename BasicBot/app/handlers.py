@@ -8,6 +8,7 @@ from telethon.tl.custom import Button
 
 from app import bot
 from app.utils import reload_admins
+from app.utils import get_mention
 from app.utils import admin_command
 from app.utils import admin_moderate_command
 from app.utils import update_chat_member
@@ -16,6 +17,7 @@ from app.utils import update_slang
 from app.utils import del_from_slang
 from app.models import Chat, ChatMember, Slang
 from app.slang_checker import RegexpProc, PymorphyProc, get_words
+from app.moderate import warn
 
 @bot.on(events.ChatAction())
 async def on_join(event: events.ChatAction.Event):
@@ -61,7 +63,11 @@ async def new_message(event: Message):
     if PymorphyProc.test(event.text):
         member = await ChatMember.get_or_none(chat_id=event.chat.id, user_id=event.sender.id)
         if not member or not member.is_admin:
-            await event.reply('Ты че, ска?!!')
+            
+            message = await warn(event.chat.id, event.sender.id, get_mention(event.sender))
+            await event.respond(message)
+            await event.reply('На, нах!')
+            await event.delete()
     
 #    if RegexpProc.test(event.text):
 #        await event.reply('Ты че, ска?!!')
@@ -173,20 +179,7 @@ async def kick_command(chat_id: int, user_id: int, mention: str):
 
 @admin_moderate_command('warn')
 async def warn_command(chat_id: int, user_id: int, mention: str):
-    member = await ChatMember.get_or_none(chat_id=chat_id, user_id=user_id)
-    warns = member.warns if member else 0
-    warns = min(warns + 1, 3)
-    await update_chat_member(chat_id, user_id, warns=warns)
-    
-    if warns == 3:
-        try:
-            await bot.edit_permissions(chat_id, user_id, send_messages=False)
-        except ChatAdminRequiredError:
-            return f'Участник {mention} получил 3 предупреждения. Я бы его замьютил,' \
-                   f'но мне недостает прав...'
-        else:
-            return f'Участник {mention} получил 3 предупреждения и теперь должен помолчать.'
-    return f'Участнику {mention} выдано предупреждение ({warns}/3)'
+    return await warn(chat_id, user_id, mention)
 
 @admin_moderate_command('unwarn')
 async def unwarn_command(chat_id: int, user_id: int, mention: str):
@@ -196,11 +189,11 @@ async def unwarn_command(chat_id: int, user_id: int, mention: str):
         return f'Эмм, так у {mention} нечего отменять...'
     warns -= 1
     await update_chat_member(chat_id, user_id, warns=warns)
-    if warns == 2:
+    if warns == 3:
         try:
             await bot.edit_permissions(chat_id, user_id, send_messages=True)
         except ChatAdminRequiredError:
-            return f'Предупреждение участнику {mention} отменено ({warns}/3). Разбаньте его кто-нибудь...'
+            return f'Предупреждение участнику {mention} отменено ({warns}/5). Разбаньте его кто-нибудь...'
         else:
-            return f'Предупреждение участнику {mention} отменено ({warns}/3). Так уж и быть, разбаню.'
-    return f'Предупреждение участнику {mention} отменено ({warns}/3).'
+            return f'Предупреждение участнику {mention} отменено ({warns}/5). Так уж и быть, разбаню.'
+    return f'Предупреждение участнику {mention} отменено ({warns}/5).'
