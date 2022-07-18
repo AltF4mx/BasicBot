@@ -8,16 +8,15 @@ from telethon.tl.custom import Button
 
 from app import bot
 from app.utils import reload_admins
-from app.utils import get_mention
 from app.utils import admin_command
 from app.utils import admin_moderate_command
 from app.utils import update_chat_member
 from app.utils import upload_words_from_json
 from app.utils import update_slang
 from app.utils import del_from_slang
+from app.utils import warn, unwarn, get_mention
 from app.models import Chat, ChatMember, Slang
 from app.slang_checker import RegexpProc, PymorphyProc, get_words
-from app.moderate import warn, unwarn
 
 @bot.on(events.ChatAction())
 async def on_join(event: events.ChatAction.Event):
@@ -67,7 +66,6 @@ async def new_message(event: Message):
             message = await warn(event.chat.id, event.sender.id, get_mention(event.sender))
             await event.respond(message)
             await event.reply('На, нах!')
-            await event.delete()
     
 #    if RegexpProc.test(event.text):
 #        await event.reply('Ты че, ска?!!')
@@ -87,17 +85,14 @@ async def show_list_word(event: Message):
         if event.is_reply:
             reply_to = await event.get_reply_message()
             if reply_to.sender.bot:
-                word_dict_cut = await Slang.filter(word__startswith=event.text.lower()).values('word')
+                word_list_cut = \
+                    await Slang.filter(word__startswith=event.text.lower()).values_list('word', flat=True)
                 
-                if len(word_dict_cut) == 0:
+                if not word_list_cut:
                     await event.respond(f'В списке нет слов, начинающихся на "{event.text}"')
                     await event.respond('Добавить слово можно при помощи команды /addword.')
                     bot.remove_event_handler(word_list_filter, events.NewMessage)
                     return
-                
-                word_list_cut = []
-                for item in word_dict_cut:
-                    word_list_cut.append(item['word'])
                 
                 await bot.send_message(event.sender_id, ', '.join(word_list_cut))
                 await event.respond('Список слов направлен Вам в ЛС.')
@@ -131,8 +126,7 @@ async def del_word(event: Message):
         if event.is_reply:
             reply_to = await event.get_reply_message()
             if reply_to.sender.bot:
-                lower_word = event.text.lower()
-                del_result = await del_from_slang(lower_word)
+                del_result = await del_from_slang(event.text.lower())
                 if del_result:
                     await event.respond(f'Слово "{event.text}" удалено из словаря.')
                 else:

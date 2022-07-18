@@ -20,13 +20,14 @@ async def upload_words_from_json():
 
 async def update_slang(word: str):
     await Slang.update_or_create(word=word)
-    logging.info(f'слово {word} загружено')
+    logging.info(f'Слово {word} загружено')
 
 async def del_from_slang(word: str):
     if not await Slang.filter(word=word).exists():
         return False
     try:
         await Slang.filter(word=word).delete()
+        logging.info(f'Слово {word} удалено.')
         return True
     except:
         return False
@@ -55,7 +56,7 @@ def admin_command(command: str):
         @bot.on(events.NewMessage(pattern=pattern, func=lambda e: e.is_group))
         async def handle(event: Message):
             if not await is_admin(event.chat.id, event.sender.id):
-                await event.respond('Не админ, не командуй!))')
+                await event.reply('Не админ, не командуй!))')
                 return
     
             try:
@@ -94,3 +95,35 @@ def admin_moderate_command(command: str):
             
         return handle
     return decorator
+
+async def warn(chat_id: int, user_id: int, mention: str):
+    member = await ChatMember.get_or_none(chat_id=chat_id, user_id=user_id)
+    warns = member.warns if member else 0
+    warns = min(warns + 1, 5)
+    await update_chat_member(chat_id, user_id, warns=warns)
+    
+    if warns == 5:
+        try:
+            await bot.edit_permissions(chat_id, user_id, send_messages=False)
+        except ChatAdminRequiredError:
+            return f'Участник {mention} получил 5 предупреждений. Я бы его замьютил,' \
+                   f'но мне недостает прав...'
+        else:
+            return f'Участник {mention} получил 5 предупреждений и теперь должен помолчать.'
+    return f'Участнику {mention} выдано предупреждение ({warns}/5)'
+
+async def unwarn(chat_id: int, user_id: int, mention: str):
+    member = await ChatMember.get_or_none(chat_id=chat_id, user_id=user_id)
+    warns = member.warns if member else 0
+    if warns == 0:
+        return f'Эмм, так у {mention} нечего отменять...'
+    warns -= 1
+    await update_chat_member(chat_id, user_id, warns=warns)
+    if warns == 4:
+        try:
+            await bot.edit_permissions(chat_id, user_id, send_messages=True)
+        except ChatAdminRequiredError:
+            return f'Предупреждение участнику {mention} отменено ({warns}/5). Разбаньте его кто-нибудь...'
+        else:
+            return f'Предупреждение участнику {mention} отменено ({warns}/5). Так уж и быть, разбаню.'
+    return f'Предупреждение участнику {mention} отменено ({warns}/5).'
