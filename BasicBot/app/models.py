@@ -8,7 +8,6 @@ class Chat(Model):
     class Meta:
         table = 'chats'
     
-    
 class ChatMember(Model):
     id = fields.IntField(pk=True)
     user_id = fields.BigIntField()
@@ -18,8 +17,7 @@ class ChatMember(Model):
     
     class Meta:
         table = 'chat_members'
-    
-    
+        
 class Slang(Model):
     id = fields.IntField(pk=True)
     word = fields.CharField(max_length=255, unique=True)

@@ -2,6 +2,7 @@ import json
 import logging
 
 from tortoise import timezone
+from datetime import timedelta
 
 from telethon import events
 from telethon.errors import ChatAdminRequiredError
@@ -104,12 +105,12 @@ async def warn(chat_id: int, user_id: int, mention: str):
     
     if warns == 5:
         try:
-            await bot.edit_permissions(chat_id, user_id, send_messages=False)
+            await bot.edit_permissions(chat_id, user_id, timedelta(minutes=30), send_messages=False)
         except ChatAdminRequiredError:
             return f'Участник {mention} получил 5 предупреждений. Я бы его замьютил,' \
                    f'но мне недостает прав...'
         else:
-            return f'Участник {mention} получил 5 предупреждений и теперь должен помолчать.'
+            return f'Участник {mention} получил 5 предупреждений и теперь должен помолчать 30 минут.'
     return f'Участнику {mention} выдано предупреждение ({warns}/5)'
 
 async def unwarn(chat_id: int, user_id: int, mention: str):
