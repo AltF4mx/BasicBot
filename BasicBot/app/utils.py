@@ -13,6 +13,8 @@ from telethon.tl.types import User
 from app import bot
 from app.models import Chat, ChatMember, Slang
 
+import config
+
 async def upload_words_from_json():
     with open("./word_data.json", 'r') as w:
         words = json.load(w)
@@ -53,7 +55,7 @@ async def reload_admins(chat_id):
 
 def admin_command(command: str):
     def decorator(func):
-        pattern = f'(?i)^/{command}$'
+        pattern = f'(?i)^/{command}@{config.BOT_NAME}$' # Подумать над целесообразностью этого
         @bot.on(events.NewMessage(pattern=pattern, func=lambda e: e.is_group))
         async def handle(event: Message):
             if not await is_admin(event.chat.id, event.sender.id):
@@ -71,7 +73,7 @@ def admin_command(command: str):
 def get_mention(user: User):
     name = user.first_name
     if user.last_name:
-        user += ' ' + user.last_name
+        name += ' ' + user.last_name
     return f'<a href="tg://user?id={user.id}">{name}</a>'
 
 def admin_moderate_command(command: str):

@@ -62,13 +62,24 @@ async def new_message(event: Message):
     if PymorphyProc.test(event.text):
         member = await ChatMember.get_or_none(chat_id=event.chat.id, user_id=event.sender.id)
         if not member or not member.is_admin:
-            
             message = await warn(event.chat.id, event.sender.id, get_mention(event.sender))
-            await event.respond(message)
-            await event.reply('На, нах!')
+            await event.respond(message, buttons=Button.inline('Показать сообщение?', event.text))
+            await event.delete()
     
 #    if RegexpProc.test(event.text):
 #        await event.reply('Ты че, ска?!!')
+
+@bot.on(events.CallbackQuery)
+async def show_text(event: events.CallbackQuery.Event):
+    member = await ChatMember.get_or_none(chat_id=event.chat.id, user_id=event.sender_id)
+    warn_message = await event.get_message()
+    if member.is_admin:
+        await bot.send_message(event.sender_id, event.data.decode('UTF-8'))
+        await event.answer('Текст сообщения направлен в ЛС.')
+        await warn_message.edit(buttons=None)
+    else:
+        await event.answer('Только для админов!', alert=True)
+    
 
 @admin_command('greet')
 async def greet_command(event: Message):
