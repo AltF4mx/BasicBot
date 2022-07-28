@@ -72,11 +72,11 @@ async def new_message(event: Message):
 @bot.on(events.CallbackQuery)
 async def show_text(event: events.CallbackQuery.Event):
     member = await ChatMember.get_or_none(chat_id=event.chat.id, user_id=event.sender_id)
-    warn_message = await event.get_message()
+    button_message = await event.get_message()
     if member.is_admin:
         await bot.send_message(event.sender_id, event.data.decode('UTF-8'))
         await event.answer('Текст сообщения направлен в ЛС.')
-        await warn_message.edit(buttons=None)
+        await button_message.edit(buttons=None)
     else:
         await event.answer('Только для админов!', alert=True)
     
@@ -157,6 +157,11 @@ async def show_help(event: Message):
     /addword и /delword - добавить/удалить запрещенное слово из словаря."
     await bot.send_message(event.sender_id, text)
     await event.respond('Список команд направлен Вам в ЛС.')
+
+@admin_command('settings') # TO DO добавить подсчет статистики
+async def show_settings(event: Message):
+    await event.respond('Выберите что Вы хотите настроить:', \
+                        buttons=Button.inline('Показать статистику', 'Какая-то стата'))
 
 @admin_moderate_command('mute')
 async def mute_command(chat_id: int, user_id: int, mention: str):
