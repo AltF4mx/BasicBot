@@ -82,16 +82,24 @@ async def new_message(event: Message):
             await event.delete()
 
 @bot.on(events.CallbackQuery)
-async def show_text(event: events.CallbackQuery.Event):
+async def button_pressing(event: events.CallbackQuery.Event):
     member = await ChatMember.get_or_none(chat_id=event.chat.id, user_id=event.sender_id)
     button_message = await event.get_message()
-    if member.is_admin:
-        await bot.send_message(event.sender_id, event.data.decode('UTF-8'))
-        await event.answer('Текст сообщения направлен в ЛС.')
-        await button_message.edit(buttons=None)
-    else:
-        await event.answer('Только для админов!', alert=True)
-    
+    buttons = button_message.buttons
+# TO DO Здесь необходимо будет разобрать список списков кнопок в дальнейшем, либо найти
+# другой способ получать текст кнопки.
+    if len(buttons) == 1 and buttons[0][0].text == 'Показать сообщение?':
+        if member.is_admin:
+            await bot.send_message(event.sender_id, event.data.decode('UTF-8'))
+            await event.answer('Текст сообщения направлен в ЛС.')
+            await button_message.edit(buttons=None)
+        else:
+            await event.answer('Только для админов!', alert=True)
+    elif len(buttons) == 1 and buttons[0][0].text == 'Показать статистику':
+        if member.is_admin:
+            await event.respond(event.data.decode('UTF-8'))
+        else:
+            await event.answer('Только для админов!', alert=True)
 
 @admin_command('greet')
 async def greet_command(event: Message):
