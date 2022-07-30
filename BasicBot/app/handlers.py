@@ -32,6 +32,12 @@ async def on_join(event: events.ChatAction.Event):
             chat = Chat(id=event.chat.id)
             await chat.save()
             await reload_admins(event.chat.id)
+        chat.joined = timezone.now()
+        await chat.save()
+        
+        users = await bot.get_participants(event.chat.id)
+        chat.users = len(users)
+        await chat.save()
 
 @bot.on(events.ChatAction(func=lambda e: (e.user_added or e.user_joined) and e.user_id != bot.me.id))
 async def greet(event: events.ChatAction.Event):
