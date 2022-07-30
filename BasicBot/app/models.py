@@ -4,6 +4,13 @@ from tortoise import fields
 class Chat(Model):
     id = fields.BigIntField(pk=True)
     last_admins_update = fields.DatetimeField(null=True)
+    joined = fields.DatetimeField(null=True)
+    users = fields.IntField(default=0)
+    messages_checked = fields.IntField(default=0)
+    bad_words_detected = fields.IntField(default=0)
+    users_muted = fields.IntField(default=0)
+    users_kiked = fields.IntField(default=0)
+    users_banned = fields.IntField(default=0)
     
     class Meta:
         table = 'chats'

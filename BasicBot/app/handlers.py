@@ -26,8 +26,6 @@ async def on_join(event: events.ChatAction.Event):
         f'<a href="tg://user?id={bot.me.id}">{bot.me.first_name}</a>' + '!')
         
         await bot.send_message(event.chat.id, 'Я послежу тут за вами немного ;)')
-        await bot.send_message(event.chat.id, 'Для получения справки по командами нажмите кнопку внизу.', \
-        buttons=Button.text('/help', resize=True, single_use=True))
         
         chat = await Chat.get_or_none(id=event.chat.id)
         if chat is None:
