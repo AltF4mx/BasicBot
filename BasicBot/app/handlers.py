@@ -44,6 +44,10 @@ async def greet(event: events.ChatAction.Event):
     await event.respond('Привет, ' + \
                         f'<a href="tg://user?id={event.user.id}">{event.user.first_name}</a>' + \
                         ', веди себя хорошо!')
+    
+    users = await bot.get_participants(event.chat.id)
+    chat.users = len(users)
+    await chat.save()
 
 @bot.on(events.NewMessage(func=lambda e: e.text.lower() == '/reload' and e.is_group))
 async def reload_command(event: Message):
