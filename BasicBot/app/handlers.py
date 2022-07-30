@@ -32,11 +32,14 @@ async def on_join(event: events.ChatAction.Event):
             chat = Chat(id=event.chat.id)
             await chat.save()
             await reload_admins(event.chat.id)
-        chat.joined = timezone.now()
-        await chat.save()
-        
+        chat.joined = timezone.now()        
         users = await bot.get_participants(event.chat.id)
         chat.users = len(users)
+        chat.messages_checked = 0
+        chat.bad_words_detected = 0
+        chat.users_muted = 0
+        chat.users_kicked = 0
+        chat.users_banned = 0
         await chat.save()
 
 @bot.on(events.ChatAction(func=lambda e: (e.user_added or e.user_joined) and e.user_id != bot.me.id))
@@ -65,17 +68,18 @@ async def new_message(event: Message):
     chat = await Chat.get(id=event.chat.id)
     if timezone.now() - chat.last_admins_update > timedelta(hours=1):
         await reload_admins(event.chat.id)
-    
+    chat.messages_checked += 1
+    await chat.save()
+
     await get_words()
     if PymorphyProc.test(event.text):
         member = await ChatMember.get_or_none(chat_id=event.chat.id, user_id=event.sender.id)
         if not member or not member.is_admin:
+            chat.bad_words_detected += 1
+            await chat.save()
             message = await warn(event.chat.id, event.sender.id, get_mention(event.sender))
             await event.respond(message, buttons=Button.inline('Показать сообщение?', event.text))
             await event.delete()
-    
-#    if RegexpProc.test(event.text):
-#        await event.reply('Ты че, ска?!!')
 
 @bot.on(events.CallbackQuery)
 async def show_text(event: events.CallbackQuery.Event):

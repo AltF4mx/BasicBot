@@ -112,6 +112,9 @@ async def warn(chat_id: int, user_id: int, mention: str):
             return f'Участник {mention} получил 5 предупреждений. Я бы его замьютил,' \
                    f'но мне недостает прав...'
         else:
+            chat = await Chat.get(id=chat_id)
+            chat.users_muted += 1
+            await chat.save()
             return f'Участник {mention} получил 5 предупреждений и теперь должен помолчать 30 минут.'
     return f'Участнику {mention} выдано предупреждение ({warns}/5)'
 
