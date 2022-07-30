@@ -1,3 +1,5 @@
+import re
+
 import pymorphy2
 
 from telethon import events
@@ -78,29 +80,65 @@ async def new_message(event: Message):
             chat.bad_words_detected += 1
             await chat.save()
             message = await warn(event.chat.id, event.sender.id, get_mention(event.sender))
-            await event.respond(message, buttons=Button.inline('Показать сообщение?', event.text))
+            await event.respond(message, buttons=Button.inline('Показать сообщение?', \
+                                                               'censored/'+event.text))
             await event.delete()
 
-@bot.on(events.CallbackQuery)
-async def button_pressing(event: events.CallbackQuery.Event):
-    member = await ChatMember.get_or_none(chat_id=event.chat.id, user_id=event.sender_id)
+@bot.on(events.CallbackQuery(pattern=r'^censored/'))
+async def show_bad_text(event: events.CallbackQuery.Event):
+    sender = await ChatMember.get_or_none(chat_id=event.chat.id, user_id=event.sender_id)
     button_message = await event.get_message()
-    buttons = button_message.buttons
-# TO DO Здесь необходимо будет разобрать список списков кнопок в дальнейшем, либо найти
-# другой способ получать текст кнопки.
-    if len(buttons) == 1 and buttons[0][0].text == 'Показать сообщение?':
-        if member.is_admin:
-            await bot.send_message(event.sender_id, event.data.decode('UTF-8'))
-            await event.answer('Текст сообщения направлен в ЛС.')
-            await button_message.edit(buttons=None)
-        else:
-            await event.answer('Только для админов!', alert=True)
-    elif len(buttons) == 1 and buttons[0][0].text == 'Показать статистику':
-        if member.is_admin:
-            await event.respond(event.data.decode('UTF-8'))
-        else:
-            await event.answer('Только для админов!', alert=True)
+    if sender.is_admin:
+        text = event.data.decode('UTF-8').replace('censored/','', 1)
+        await bot.send_message(event.sender_id, text)
+        await event.answer('Текст сообщения направлен в ЛС.')
+        await button_message.edit(buttons=None)
+    else:
+        await event.answer('Только для админов!', alert=True)
 
+@bot.on(events.CallbackQuery(pattern=r'^stat/'))
+async def show_bad_text(event: events.CallbackQuery.Event):
+    morph = pymorphy2.MorphAnalyzer()
+    sender = await ChatMember.get_or_none(chat_id=event.chat.id, user_id=event.sender_id)
+    chat = await Chat.get(id=event.chat.id)
+    chat_title = event.chat.title
+    button_message = await event.get_message()
+    if sender.is_admin:
+        joined = chat.joined.strftime('%d.%m.%Y')
+        users = chat.users
+        users_word = morph.parse('пользователь')[0].make_agree_with_number(users).word
+        messages = chat.messages_checked
+        mess_word = morph.parse('сообщение')[0].make_agree_with_number(messages).word
+        bad_words = chat.bad_words_detected
+        words_word = morph.parse('слово')[0].make_agree_with_number(bad_words).word
+        muted = chat.users_muted
+        mute_word = morph.parse('случай')[0].make_agree_with_number(muted).word
+        kicked = chat.users_kiked
+        kick_word = morph.parse('пользователь')[0].make_agree_with_number(kicked).word
+        banned = chat.users_banned
+        ban_word = morph.parse('пользователь')[0].make_agree_with_number(banned).word
+        text = f'''Статистика группы {chat_title}:
+Бот в этом чате с {joined} г.
+Сейчас в чате {users} {users_word}.
+С момента вступления:
+  - проверено {messages} {mess_word};
+  - выявлено {bad_words} плохих слов;
+  - зарегистрирвано {muted} {mute_word} мьюта пользователю;
+  - кикнуто {kicked} {kick_word};
+  - забанено {banned} {ban_word}.'''
+        await button_message.edit(text=text, buttons=Button.inline('Скрыть статистику', 'stat_close/'))
+    else:
+        await event.answer('Только для админов!', alert=True)
+
+@bot.on(events.CallbackQuery(pattern=r'^stat_close/'))
+async def show_bad_text(event: events.CallbackQuery.Event):
+    sender = await ChatMember.get_or_none(chat_id=event.chat.id, user_id=event.sender_id)
+    button_message = await event.get_message()
+    if sender.is_admin:
+        await button_message.delete()
+    else:
+        await event.answer('Только для админов!', alert=True)
+        
 @admin_command('greet')
 async def greet_command(event: Message):
     await event.respond('Привет, хозяин!')
@@ -180,8 +218,13 @@ async def show_help(event: Message):
 
 @admin_command('settings') # TO DO добавить подсчет статистики
 async def show_settings(event: Message):
-    await event.respond('Выберите что Вы хотите настроить:', \
-                        buttons=Button.inline('Показать статистику', 'Какая-то стата'))
+    keyboard = [[
+        Button.inline('Показать статистику', 'stat/'),
+        Button.inline('Еще одна кнопка', 'Еще данные')
+    ],
+        [Button.inline('Третья кнопка', 'Хз где она будет')
+    ]]
+    await event.respond('Выберите действие:', buttons=keyboard)
 
 @admin_moderate_command('mute')
 async def mute_command(chat_id: int, user_id: int, mention: str):
