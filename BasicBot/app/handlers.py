@@ -118,15 +118,15 @@ async def show_bad_text(event: events.CallbackQuery.Event):
         banned = chat.users_banned
         ban_word = morph.parse('пользователь')[0].make_agree_with_number(banned).word
         text = f'''Статистика группы {chat_title}:
-Бот в этом чате с {joined} г.
-Сейчас в чате {users} {users_word}.
+\U0001F4C6 Бот в этом чате с {joined} г.
+\U0001F465 Сейчас в чате {users} {users_word}.
 С момента вступления:
-  - проверено {messages} {mess_word};
-  - выявлено {bad_words} плохих слов;
-  - зарегистрирвано {muted} {mute_word} мьюта пользователю;
-  - кикнуто {kicked} {kick_word};
-  - забанено {banned} {ban_word}.'''
-        await button_message.edit(text=text, buttons=Button.inline('Скрыть статистику', 'stat_close/'))
+\U0001F4E8 - проверено {messages} {mess_word};
+\U0001F51E  - выявлено {bad_words} плохих слов;
+\U0001F6A7  - зарегистрирвано {muted} {mute_word} мьюта пользователю;
+\U0001F6AB  - кикнуто {kicked} {kick_word};
+\U0001F528 - забанено {banned} {ban_word}.'''
+        await button_message.edit(text=text, buttons=Button.inline('\U0000274C  Скрыть статистику', 'stat_close/'))
     else:
         await event.answer('Только для админов!', alert=True)
 
@@ -219,7 +219,7 @@ async def show_help(event: Message):
 @admin_command('settings') # TO DO добавить подсчет статистики
 async def show_settings(event: Message):
     keyboard = [[
-        Button.inline('Показать статистику', 'stat/'),
+        Button.inline('\U0001F4CA  Показать статистику', 'stat/'),
         Button.inline('Еще одна кнопка', 'Еще данные')
     ],
         [Button.inline('Третья кнопка', 'Хз где она будет')
