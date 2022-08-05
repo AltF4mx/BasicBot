@@ -113,7 +113,7 @@ async def show_bad_text(event: events.CallbackQuery.Event):
         words_word = morph.parse('слово')[0].make_agree_with_number(bad_words).word
         muted = chat.users_muted
         mute_word = morph.parse('случай')[0].make_agree_with_number(muted).word
-        kicked = chat.users_kiked
+        kicked = chat.users_kicked
         kick_word = morph.parse('пользователь')[0].make_agree_with_number(kicked).word
         banned = chat.users_banned
         ban_word = morph.parse('пользователь')[0].make_agree_with_number(banned).word

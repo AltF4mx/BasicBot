@@ -9,8 +9,13 @@ class Chat(Model):
     messages_checked = fields.IntField(default=0)
     bad_words_detected = fields.IntField(default=0)
     users_muted = fields.IntField(default=0)
-    users_kiked = fields.IntField(default=0)
+    users_kicked = fields.IntField(default=0)
     users_banned = fields.IntField(default=0)
+    filter_enable = fields.BooleanField(default=True)
+    filter_mode = fields.CharField(max_length=10, default='dict')
+    warns_number = fields.IntField(default=3)
+    penalty_mode = fields.CharField(max_length=10, default='mute')
+    mute_duration = fields.IntField(default=30)
     
     class Meta:
         table = 'chats'
