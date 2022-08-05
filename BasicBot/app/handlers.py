@@ -97,11 +97,11 @@ async def show_bad_text(event: events.CallbackQuery.Event):
         await event.answer('Только для админов!', alert=True)
 
 @bot.on(events.CallbackQuery(pattern=r'^stat/'))
-async def show_bad_text(event: events.CallbackQuery.Event):
+async def show_stat(event: events.CallbackQuery.Event):
     morph = pymorphy2.MorphAnalyzer()
-    sender = await ChatMember.get_or_none(chat_id=event.chat.id, user_id=event.sender_id)
-    chat = await Chat.get(id=event.chat.id)
-    chat_title = event.chat.title
+    comm, chat_id, chat_title = event.data.decode('UTF-8').split('/')
+    sender = await ChatMember.get_or_none(chat_id=chat_id, user_id=event.sender_id)
+    chat = await Chat.get(id=chat_id)
     button_message = await event.get_message()
     if sender.is_admin:
         joined = chat.joined.strftime('%d.%m.%Y')
@@ -126,18 +126,18 @@ async def show_bad_text(event: events.CallbackQuery.Event):
 \U0001F6A7  - зарегистрирвано {muted} {mute_word} мьюта пользователю;
 \U0001F6AB  - кикнуто {kicked} {kick_word};
 \U0001F528 - забанено {banned} {ban_word}.'''
-        await button_message.edit(text=text, buttons=Button.inline('\U0000274C  Скрыть статистику', 'stat_close/'))
+        keyboard = [
+            Button.inline('\U0000274C  Скрыть статистику', 'stat_close/'),
+            Button.inline('\U000023EA  Назад к настройкам', 'back_to_set/')
+        ]
+        await button_message.edit(text=text, buttons=keyboard)
     else:
         await event.answer('Только для админов!', alert=True)
 
 @bot.on(events.CallbackQuery(pattern=r'^stat_close/'))
-async def show_bad_text(event: events.CallbackQuery.Event):
-    sender = await ChatMember.get_or_none(chat_id=event.chat.id, user_id=event.sender_id)
+async def stat_close(event: events.CallbackQuery.Event):
     button_message = await event.get_message()
-    if sender.is_admin:
-        await button_message.delete()
-    else:
-        await event.answer('Только для админов!', alert=True)
+    await button_message.delete()
         
 @admin_command('greet')
 async def greet_command(event: Message):
@@ -216,15 +216,16 @@ async def show_help(event: Message):
     await bot.send_message(event.sender_id, text)
     await event.respond('Список команд направлен Вам в ЛС.')
 
-@admin_command('settings') # TO DO добавить подсчет статистики
-async def show_settings(event: Message):
+@admin_command('settings') # TO DO добавить кнопки управления настройками с подрузкой данных из базы
+async def show_settings(event: Message): # Так же необходимо перенести функцию в модуль utils для возможности возврата к настройкам в ЛС
     keyboard = [[
-        Button.inline('\U0001F4CA  Показать статистику', 'stat/'),
+        Button.inline('\U0001F4CA  Показать статистику', f'stat/{event.chat.id}/{event.chat.title}'),
         Button.inline('Еще одна кнопка', 'Еще данные')
     ],
         [Button.inline('Третья кнопка', 'Хз где она будет')
     ]]
-    await event.respond('Выберите действие:', buttons=keyboard)
+    await event.reply('Перейдите в ЛС для настройки бота.')
+    await bot.send_message(event.sender_id, f'Настройки для группы {event.chat.title}:', buttons=keyboard)
 
 @admin_moderate_command('mute')
 async def mute_command(chat_id: int, user_id: int, mention: str):
