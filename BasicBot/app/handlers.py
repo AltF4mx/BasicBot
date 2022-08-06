@@ -8,7 +8,7 @@ from tortoise import timezone
 from telethon.tl.custom import Message
 from telethon.tl.custom import Button
 
-from app import bot
+from app import bot, templates
 from app.utils import reload_admins
 from app.utils import admin_command
 from app.utils import admin_moderate_command
@@ -104,32 +104,7 @@ async def show_stat(event: events.CallbackQuery.Event):
     chat = await Chat.get(id=chat_id)
     button_message = await event.get_message()
     if sender.is_admin:
-        joined = chat.joined.strftime('%d.%m.%Y')
-        users = chat.users
-        users_word = morph.parse('пользователь')[0].make_agree_with_number(users).word
-        messages = chat.messages_checked
-        mess_word = morph.parse('сообщение')[0].make_agree_with_number(messages).word
-        bad_words = chat.bad_words_detected
-        words_word = morph.parse('слово')[0].make_agree_with_number(bad_words).word
-        muted = chat.users_muted
-        mute_word = morph.parse('случай')[0].make_agree_with_number(muted).word
-        kicked = chat.users_kicked
-        kick_word = morph.parse('пользователь')[0].make_agree_with_number(kicked).word
-        banned = chat.users_banned
-        ban_word = morph.parse('пользователь')[0].make_agree_with_number(banned).word
-        text = f'''Статистика группы {chat_title}:
-\U0001F4C6 Бот в этом чате с {joined} г.
-\U0001F465 Сейчас в чате {users} {users_word}.
-С момента вступления:
-\U0001F4E8 - проверено {messages} {mess_word};
-\U0001F51E  - выявлено {bad_words} плохих слов;
-\U0001F6A7  - зарегистрирвано {muted} {mute_word} мьюта пользователю;
-\U0001F6AB  - кикнуто {kicked} {kick_word};
-\U0001F528 - забанено {banned} {ban_word}.'''
-        keyboard = [
-            Button.inline('\U0000274C  Скрыть статистику', 'stat_close/'),
-            Button.inline('\U000023EA  Назад к настройкам', 'back_to_set/')
-        ]
+        text, keyboard = templates.stat_message(chat_id, chat_title, chat)
         await button_message.edit(text=text, buttons=keyboard)
     else:
         await event.answer('Только для админов!', alert=True)
@@ -138,6 +113,13 @@ async def show_stat(event: events.CallbackQuery.Event):
 async def stat_close(event: events.CallbackQuery.Event):
     button_message = await event.get_message()
     await button_message.delete()
+    
+@bot.on(events.CallbackQuery(pattern=r'^back_to_set/'))
+async def back_to_set(event: events.CallbackQuery.Event):
+    button_message = await event.get_message()
+    comm, chat_id, chat_title = event.data.decode('UTF-8').split('/')
+    text, keyboard = templates.settings_message(chat_id, chat_title)
+    await button_message.edit(text=text, buttons=keyboard)
         
 @admin_command('greet')
 async def greet_command(event: Message):
@@ -217,15 +199,12 @@ async def show_help(event: Message):
     await event.respond('Список команд направлен Вам в ЛС.')
 
 @admin_command('settings') # TO DO добавить кнопки управления настройками с подрузкой данных из базы
-async def show_settings(event: Message): # Так же необходимо перенести функцию в модуль utils для возможности возврата к настройкам в ЛС
-    keyboard = [[
-        Button.inline('\U0001F4CA  Показать статистику', f'stat/{event.chat.id}/{event.chat.title}'),
-        Button.inline('Еще одна кнопка', 'Еще данные')
-    ],
-        [Button.inline('Третья кнопка', 'Хз где она будет')
-    ]]
+async def show_settings(event: Message): # Так же необходимо вынести сообщения в отдельны модуль.
+    chat_id = event.chat.id
+    chat_title = event.chat.title
+    text, keyboard = templates.settings_message(chat_id, chat_title)
     await event.reply('Перейдите в ЛС для настройки бота.')
-    await bot.send_message(event.sender_id, f'Настройки для группы {event.chat.title}:', buttons=keyboard)
+    await bot.send_message(event.sender_id, text, buttons=keyboard)
 
 @admin_moderate_command('mute')
 async def mute_command(chat_id: int, user_id: int, mention: str):
