@@ -118,8 +118,35 @@ async def stat_close(event: events.CallbackQuery.Event):
 async def back_to_set(event: events.CallbackQuery.Event):
     button_message = await event.get_message()
     comm, chat_id, chat_title = event.data.decode('UTF-8').split('/')
-    text, keyboard = templates.settings_message(chat_id, chat_title)
+    chat = await Chat.get(id=chat_id)
+    text, keyboard = templates.settings_message(chat_id, chat_title, chat)
     await button_message.edit(text=text, buttons=keyboard)
+    
+@bot.on(events.CallbackQuery(pattern=r'^warns_num_inc/'))
+async def back_to_set(event: events.CallbackQuery.Event):
+    button_message = await event.get_message()
+    comm, chat_id, chat_title = event.data.decode('UTF-8').split('/')
+    chat = await Chat.get(id=chat_id)
+    if chat.warns_number == 5:
+        await event.answer('Достигнуто максимальное количество предупреждений.')
+    else:
+        chat.warns_number += 1
+        await chat.save()
+        text, keyboard = templates.settings_message(chat_id, chat_title, chat)
+        await button_message.edit(text=text, buttons=keyboard)
+
+@bot.on(events.CallbackQuery(pattern=r'^warns_num_dec/'))
+async def back_to_set(event: events.CallbackQuery.Event):
+    button_message = await event.get_message()
+    comm, chat_id, chat_title = event.data.decode('UTF-8').split('/')
+    chat = await Chat.get(id=chat_id)
+    if chat.warns_number == 1:
+        await event.answer('Достигнуто минимальное количество предупреждений.')
+    else:
+        chat.warns_number -= 1
+        await chat.save()
+        text, keyboard = templates.settings_message(chat_id, chat_title, chat)
+        await button_message.edit(text=text, buttons=keyboard)
         
 @admin_command('greet')
 async def greet_command(event: Message):
@@ -198,11 +225,12 @@ async def show_help(event: Message):
     await bot.send_message(event.sender_id, text)
     await event.respond('Список команд направлен Вам в ЛС.')
 
-@admin_command('settings') # TO DO добавить кнопки управления настройками с подрузкой данных из базы
-async def show_settings(event: Message): # Так же необходимо вынести сообщения в отдельны модуль.
+@admin_command('settings')
+async def show_settings(event: Message):
     chat_id = event.chat.id
     chat_title = event.chat.title
-    text, keyboard = templates.settings_message(chat_id, chat_title)
+    chat = await Chat.get(id=chat_id)
+    text, keyboard = templates.settings_message(chat_id, chat_title, chat)
     await event.reply('Перейдите в ЛС для настройки бота.')
     await bot.send_message(event.sender_id, text, buttons=keyboard)
 
