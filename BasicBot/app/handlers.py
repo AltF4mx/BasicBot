@@ -109,10 +109,13 @@ async def show_stat(event: events.CallbackQuery.Event):
     else:
         await event.answer('Только для админов!', alert=True)
 
-@bot.on(events.CallbackQuery(pattern=r'^stat_close/'))
+@bot.on(events.CallbackQuery(pattern=r'^close/'))
 async def stat_close(event: events.CallbackQuery.Event):
     button_message = await event.get_message()
-    await button_message.delete()
+    try:
+        await button_message.delete()
+    except:
+        await event.answer('\U00002757 Невозможно скрыть сообщение...')
     
 @bot.on(events.CallbackQuery(pattern=r'^back_to_set/'))
 async def back_to_set(event: events.CallbackQuery.Event):
@@ -147,6 +150,67 @@ async def back_to_set(event: events.CallbackQuery.Event):
         await chat.save()
         text, keyboard = templates.settings_message(chat_id, chat_title, chat)
         await button_message.edit(text=text, buttons=keyboard)
+
+@bot.on(events.CallbackQuery(pattern=r'^mute_dur_inc/'))
+async def back_to_set(event: events.CallbackQuery.Event):
+    button_message = await event.get_message()
+    comm, chat_id, chat_title = event.data.decode('UTF-8').split('/')
+    chat = await Chat.get(id=chat_id)
+    if chat.mute_duration == 60:
+        await event.answer('Достигнута максимальная продолжительность мьюта.')
+    else:
+        chat.mute_duration += 5
+        await chat.save()
+        text, keyboard = templates.settings_message(chat_id, chat_title, chat)
+        await button_message.edit(text=text, buttons=keyboard)
+
+@bot.on(events.CallbackQuery(pattern=r'^mute_dur_dec/'))
+async def back_to_set(event: events.CallbackQuery.Event):
+    button_message = await event.get_message()
+    comm, chat_id, chat_title = event.data.decode('UTF-8').split('/')
+    chat = await Chat.get(id=chat_id)
+    if chat.mute_duration == 5:
+        await event.answer('Достигнута минимальная продолжительность мьюта.')
+    else:
+        chat.mute_duration -= 5
+        await chat.save()
+        text, keyboard = templates.settings_message(chat_id, chat_title, chat)
+        await button_message.edit(text=text, buttons=keyboard)
+
+@bot.on(events.CallbackQuery(pattern=r'^penalty_mode/'))
+async def back_to_set(event: events.CallbackQuery.Event):
+    button_message = await event.get_message()
+    comm, chat_id, chat_title = event.data.decode('UTF-8').split('/')
+    chat = await Chat.get(id=chat_id)
+    if chat.penalty_mode == 'mute':
+        chat.penalty_mode = 'kick'
+        await chat.save()
+    elif chat.penalty_mode == 'kick':
+        chat.penalty_mode = 'ban'
+        await chat.save()
+    else:
+        chat.penalty_mode = 'mute'
+        await chat.save()
+    text, keyboard = templates.settings_message(chat_id, chat_title, chat)
+    await button_message.edit(text=text, buttons=keyboard)
+
+@bot.on(events.CallbackQuery(pattern=r'^filter/'))
+async def back_to_set(event: events.CallbackQuery.Event):
+    button_message = await event.get_message()
+    comm, chat_id, chat_title = event.data.decode('UTF-8').split('/')
+    chat = await Chat.get(id=chat_id)
+    if chat.filter_enable and chat.filter_mode == 'dict':
+        chat.filter_mode = 'pattern'
+        await chat.save()
+    elif chat.filter_enable and chat.filter_mode == 'pattern':
+        chat.filter_enable = False
+        await chat.save()
+    else:
+        chat.filter_enable = True
+        chat.filter_mode = 'dict'
+        await chat.save()
+    text, keyboard = templates.settings_message(chat_id, chat_title, chat)
+    await button_message.edit(text=text, buttons=keyboard)
         
 @admin_command('greet')
 async def greet_command(event: Message):

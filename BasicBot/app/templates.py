@@ -3,8 +3,7 @@ import pymorphy2
 from telethon.tl.custom import Button
 
 def settings_message(chat_id: str, chat_title: str, chat):
-    chat_id, chat_title = chat_id, chat_title
-    chat = chat
+    chat_id, chat_title, chat = chat_id, chat_title, chat
     text = f'Настройки для группы {chat_title}:'
     if chat.filter_mode == 'dict':
         filter_mode = 'Словарь'
@@ -12,12 +11,21 @@ def settings_message(chat_id: str, chat_title: str, chat):
         filter_mode = 'Шаблон'
     warns_number = chat.warns_number
     mute_duration = chat.mute_duration
+    if chat.penalty_mode == 'mute':
+        penalty_mode = '\U0001F6A7 мьют'
+    elif chat.penalty_mode == 'kick':
+        penalty_mode = '\U0001F6AB кик'
+    else:
+        penalty_mode = '\U0001F528 бан'
     keyboard_off = [
         [
             Button.inline('\U0001F4CA  Показать статистику', f'stat/{chat_id}/{chat_title}')
         ],
         [
-            Button.inline('\U0000274C  Антимат: Off.', f'filter/{chat_id}/{chat_title}')
+            Button.inline('\U00002757  Антимат: Off.', f'filter/{chat_id}/{chat_title}')
+        ],
+        [
+            Button.inline('\U0000274C  Закрыть', 'close/')
         ]
     ]
     keyboard_on_not_mute = [
@@ -33,7 +41,10 @@ def settings_message(chat_id: str, chat_title: str, chat):
             Button.inline('\U00002796', f'warns_num_dec/{chat_id}/{chat_title}')
         ],
         [
-            Button.inline('\U00002757  Наказание за мат: кик/бан', f'penalty_mode/{chat_id}/{chat_title}')
+            Button.inline(f'Наказание за мат: {penalty_mode}.', f'penalty_mode/{chat_id}/{chat_title}')
+        ],
+        [
+            Button.inline('\U0000274C  Закрыть', 'close/')
         ]
     ]
     keyboard_full = [
@@ -49,12 +60,15 @@ def settings_message(chat_id: str, chat_title: str, chat):
             Button.inline('\U00002796', f'warns_num_dec/{chat_id}/{chat_title}')
         ],
         [
-            Button.inline('\U00002757  Наказание за мат: мьют/кик/бан', f'penalty_mode/{chat_id}/{chat_title}')
+            Button.inline(f'Наказание за мат: {penalty_mode}.', f'penalty_mode/{chat_id}/{chat_title}')
         ],
         [
             Button.inline('\U00002795', f'mute_dur_inc/{chat_id}/{chat_title}'),
             Button.inline(f'Мьют - {mute_duration} минут', f'mute_dur/{chat_id}/{chat_title}'),
             Button.inline('\U00002796', f'mute_dur_dec/{chat_id}/{chat_title}')
+        ],
+        [
+            Button.inline('\U0000274C  Закрыть', 'close/')
         ]
     ]
     if chat.filter_enable:
@@ -67,8 +81,7 @@ def settings_message(chat_id: str, chat_title: str, chat):
     return text, keyboard
 
 def stat_message(chat_id: str, chat_title: str, chat):
-    chat_id, chat_title = chat_id, chat_title
-    chat = chat
+    chat_id, chat_title, chat = chat_id, chat_title, chat
     morph = pymorphy2.MorphAnalyzer()
     joined = chat.joined.strftime('%d.%m.%Y')
     users = chat.users
@@ -95,7 +108,7 @@ def stat_message(chat_id: str, chat_title: str, chat):
 \U0001F528 - забанено {banned} {ban_word}.
 '''
     keyboard = [
-        Button.inline('\U0000274C  Закрыть', 'stat_close/'),
+        Button.inline('\U0000274C  Закрыть', 'close/'),
         Button.inline('\U000023EA  Назад к настройкам', f'back_to_set/{chat_id}/{chat_title}')
     ]
     return text, keyboard
