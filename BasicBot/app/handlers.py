@@ -72,17 +72,29 @@ async def new_message(event: Message):
         await reload_admins(event.chat.id)
     chat.messages_checked += 1
     await chat.save()
-
-    await get_words()
-    if PymorphyProc.test(event.text):
-        member = await ChatMember.get_or_none(chat_id=event.chat.id, user_id=event.sender.id)
-        if not member or not member.is_admin:
-            chat.bad_words_detected += 1
-            await chat.save()
-            message = await warn(event.chat.id, event.sender.id, get_mention(event.sender))
-            await event.respond(message, buttons=Button.inline('Показать сообщение?', \
-                                                               'censored/'+event.text))
-            await event.delete()
+    
+    if chat.filter_enable:
+        if chat.filter_mode == 'dict':
+            await get_words()
+            if PymorphyProc.test(event.text):
+                member = await ChatMember.get_or_none(chat_id=event.chat.id, user_id=event.sender.id)
+                if not member or not member.is_admin:
+                    chat.bad_words_detected += 1
+                    await chat.save()
+                    message = await warn(event.chat.id, event.sender.id, get_mention(event.sender))
+                    await event.respond(message, buttons=Button.inline('Показать сообщение?', \
+                                                                       'censored/'+event.text))
+                    await event.delete()
+        else:
+            if RegexpProc.test(event.text):
+                member = await ChatMember.get_or_none(chat_id=event.chat.id, user_id=event.sender.id)
+                if not member or not member.is_admin:
+                    chat.bad_words_detected += 1
+                    await chat.save()
+                    message = await warn(event.chat.id, event.sender.id, get_mention(event.sender))
+                    await event.respond(message, buttons=Button.inline('Показать сообщение?', \
+                                                                       'censored/'+event.text))
+                    await event.delete()
 
 @bot.on(events.CallbackQuery(pattern=r'^censored/'))
 async def show_bad_text(event: events.CallbackQuery.Event):

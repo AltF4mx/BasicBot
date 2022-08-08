@@ -1,6 +1,8 @@
 import json
 import logging
 
+import pymorphy2
+
 from tortoise import timezone
 from datetime import timedelta
 
@@ -102,34 +104,40 @@ def admin_moderate_command(command: str):
 async def warn(chat_id: int, user_id: int, mention: str):
     member = await ChatMember.get_or_none(chat_id=chat_id, user_id=user_id)
     warns = member.warns if member else 0
-    warns = min(warns + 1, 5)
+    chat = await Chat.get(id=chat_id)
+    warns_num = chat.warns_number
+    mute_dur = chat.mute_duration
+    warns = min(warns + 1, warns_num)
+    morph = pymorphy2.MorphAnalyzer()
+    warns_word = morph.parse('предупреждение')[0].make_agree_with_number(warns).word
     await update_chat_member(chat_id, user_id, warns=warns)
     
-    if warns == 5:
+    if warns == warns_num:
         try:
-            await bot.edit_permissions(chat_id, user_id, timedelta(minutes=30), send_messages=False)
+            await bot.edit_permissions(chat_id, user_id, timedelta(minutes=mute_dur), send_messages=False)
         except ChatAdminRequiredError:
-            return f'Участник {mention} получил 5 предупреждений. Я бы его замьютил,' \
+            return f'Участник {mention} получил {warns_num} {warns_word}. Я бы его замьютил,' \
                    f'но мне недостает прав...'
         else:
-            chat = await Chat.get(id=chat_id)
             chat.users_muted += 1
             await chat.save()
-            return f'Участник {mention} получил 5 предупреждений и теперь должен помолчать 30 минут.'
-    return f'Участнику {mention} выдано предупреждение ({warns}/5)'
+            return f'Участник {mention} получил {warns_num} {warns_word} и теперь должен помолчать {mute_dur} минут.'
+    return f'Участнику {mention} выдано предупреждение ({warns}/{warns_num})'
 
 async def unwarn(chat_id: int, user_id: int, mention: str):
     member = await ChatMember.get_or_none(chat_id=chat_id, user_id=user_id)
     warns = member.warns if member else 0
+    chat = await Chat.get(id=chat_id)
+    warns_num = chat.warns_number
     if warns == 0:
         return f'Эмм, так у {mention} нечего отменять...'
     warns -= 1
     await update_chat_member(chat_id, user_id, warns=warns)
-    if warns == 4:
+    if warns == warns_num - 1:
         try:
             await bot.edit_permissions(chat_id, user_id, send_messages=True)
         except ChatAdminRequiredError:
-            return f'Предупреждение участнику {mention} отменено ({warns}/5). Разбаньте его кто-нибудь...'
+            return f'Предупреждение участнику {mention} отменено ({warns}/{warns_num}). Разбаньте его кто-нибудь...'
         else:
-            return f'Предупреждение участнику {mention} отменено ({warns}/5). Так уж и быть, разбаню.'
-    return f'Предупреждение участнику {mention} отменено ({warns}/5).'
+            return f'Предупреждение участнику {mention} отменено ({warns}/{warns_num}). Так уж и быть, разбаню.'
+    return f'Предупреждение участнику {mention} отменено ({warns}/{warns_num}).'
