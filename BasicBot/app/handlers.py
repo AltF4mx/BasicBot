@@ -105,6 +105,9 @@ async def show_stat(event: events.CallbackQuery.Event):
     sender = await ChatMember.get_or_none(chat_id=chat_id, user_id=event.sender_id)
     chat = await Chat.get(id=chat_id)
     button_message = await event.get_message()
+    users = await bot.get_participants(int(chat_id))
+    chat.users = len(users)
+    await chat.save()
     if sender.is_admin:
         text, keyboard = templates.stat_message(chat_id, chat_title, chat)
         await button_message.edit(text=text, buttons=keyboard)
