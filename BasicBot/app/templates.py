@@ -5,18 +5,14 @@ from telethon.tl.custom import Button
 def settings_message(chat_id: str, chat_title: str, chat):
     chat_id, chat_title, chat = chat_id, chat_title, chat
     text = f'Настройки для группы {chat_title}:'
-    if chat.filter_mode == 'dict':
-        filter_mode = 'Словарь'
-    else:
-        filter_mode = 'Шаблон'
+    f_mods = {'dict': 'Словарь', 'pattern': 'Шаблон'}
     warns_number = chat.warns_number
     mute_duration = chat.mute_duration
-    if chat.penalty_mode == 'mute':
-        penalty_mode = '\U0001F6A7 мьют'
-    elif chat.penalty_mode == 'kick':
-        penalty_mode = '\U0001F6AB кик'
-    else:
-        penalty_mode = '\U0001F528 бан'
+    p_mods = {
+        'mute': '\U0001F6A7 мьют',
+        'kick': '\U0001F6AB кик',
+        'ban': '\U0001F528 бан'
+    }
     keyboard_off = [
         [
             Button.inline('\U0001F4CA  Показать статистику', f'stat/{chat_id}/{chat_title}')
@@ -33,7 +29,8 @@ def settings_message(chat_id: str, chat_title: str, chat):
             Button.inline('\U0001F4CA  Показать статистику', f'stat/{chat_id}/{chat_title}')
         ],
         [
-            Button.inline(f'\U00002705 Антимат: {filter_mode}.', f'filter/{chat_id}/{chat_title}')
+            Button.inline(f'\U00002705 Антимат: {f_mods[chat.filter_mode]}.', \
+                          f'filter/{chat_id}/{chat_title}')
         ],
         [
             Button.inline('\U00002795', f'warns_num_inc/{chat_id}/{chat_title}'),
@@ -41,7 +38,8 @@ def settings_message(chat_id: str, chat_title: str, chat):
             Button.inline('\U00002796', f'warns_num_dec/{chat_id}/{chat_title}')
         ],
         [
-            Button.inline(f'Наказание за мат: {penalty_mode}.', f'penalty_mode/{chat_id}/{chat_title}')
+            Button.inline(f'Наказание за мат: {p_mods[chat.penalty_mode]}.', \
+                          f'penalty_mode/{chat_id}/{chat_title}')
         ],
         [
             Button.inline('\U0000274C  Закрыть', 'close/')
@@ -52,7 +50,8 @@ def settings_message(chat_id: str, chat_title: str, chat):
             Button.inline('\U0001F4CA  Показать статистику', f'stat/{chat_id}/{chat_title}')
         ],
         [
-            Button.inline(f'\U00002705  Антимат: {filter_mode}.', f'filter/{chat_id}/{chat_title}')
+            Button.inline(f'\U00002705  Антимат: {f_mods[chat.filter_mode]}.', \
+                          f'filter/{chat_id}/{chat_title}')
         ],
         [
             Button.inline('\U00002795', f'warns_num_inc/{chat_id}/{chat_title}'),
@@ -60,7 +59,8 @@ def settings_message(chat_id: str, chat_title: str, chat):
             Button.inline('\U00002796', f'warns_num_dec/{chat_id}/{chat_title}')
         ],
         [
-            Button.inline(f'Наказание за мат: {penalty_mode}.', f'penalty_mode/{chat_id}/{chat_title}')
+            Button.inline(f'Наказание за мат: {p_mods[chat.penalty_mode]}.', \
+                          f'penalty_mode/{chat_id}/{chat_title}')
         ],
         [
             Button.inline('\U00002795', f'mute_dur_inc/{chat_id}/{chat_title}'),
