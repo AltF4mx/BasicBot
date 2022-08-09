@@ -73,28 +73,18 @@ async def new_message(event: Message):
     chat.messages_checked += 1
     await chat.save()
     
+    word_filter = {'dict': PymorphyProc, 'pattern': RegexpProc}
     if chat.filter_enable:
-        if chat.filter_mode == 'dict':
-            await get_words()
-            if PymorphyProc.test(event.text):
-                member = await ChatMember.get_or_none(chat_id=event.chat.id, user_id=event.sender.id)
-                if not member or not member.is_admin:
-                    chat.bad_words_detected += 1
-                    await chat.save()
-                    message = await warn(event.chat.id, event.sender.id, get_mention(event.sender))
-                    await event.respond(message, buttons=Button.inline('Показать сообщение?', \
-                                                                       'censored/'+event.text))
-                    await event.delete()
-        else:
-            if RegexpProc.test(event.text):
-                member = await ChatMember.get_or_none(chat_id=event.chat.id, user_id=event.sender.id)
-                if not member or not member.is_admin:
-                    chat.bad_words_detected += 1
-                    await chat.save()
-                    message = await warn(event.chat.id, event.sender.id, get_mention(event.sender))
-                    await event.respond(message, buttons=Button.inline('Показать сообщение?', \
-                                                                       'censored/'+event.text))
-                    await event.delete()
+        await get_words()
+        if word_filter[chat.filter_mode].test(event.text):
+            member = await ChatMember.get_or_none(chat_id=event.chat.id, user_id=event.sender.id)
+            if not member or not member.is_admin:
+                chat.bad_words_detected += 1
+                await chat.save()
+                message = await warn(event.chat.id, event.sender.id, get_mention(event.sender))
+                await event.respond(message, buttons=Button.inline('Показать сообщение?', \
+                                                                   'censored/'+event.text))
+                await event.delete()
 
 @bot.on(events.CallbackQuery(pattern=r'^censored/'))
 async def show_bad_text(event: events.CallbackQuery.Event):
@@ -138,7 +128,7 @@ async def back_to_set(event: events.CallbackQuery.Event):
     await button_message.edit(text=text, buttons=keyboard)
     
 @bot.on(events.CallbackQuery(pattern=r'^warns_num_inc/'))
-async def back_to_set(event: events.CallbackQuery.Event):
+async def warn_num_inc(event: events.CallbackQuery.Event):
     button_message = await event.get_message()
     comm, chat_id, chat_title = event.data.decode('UTF-8').split('/')
     chat = await Chat.get(id=chat_id)
@@ -151,7 +141,7 @@ async def back_to_set(event: events.CallbackQuery.Event):
         await button_message.edit(text=text, buttons=keyboard)
 
 @bot.on(events.CallbackQuery(pattern=r'^warns_num_dec/'))
-async def back_to_set(event: events.CallbackQuery.Event):
+async def warn_num_dec(event: events.CallbackQuery.Event):
     button_message = await event.get_message()
     comm, chat_id, chat_title = event.data.decode('UTF-8').split('/')
     chat = await Chat.get(id=chat_id)
@@ -164,7 +154,7 @@ async def back_to_set(event: events.CallbackQuery.Event):
         await button_message.edit(text=text, buttons=keyboard)
 
 @bot.on(events.CallbackQuery(pattern=r'^mute_dur_inc/'))
-async def back_to_set(event: events.CallbackQuery.Event):
+async def mute_dur_inc(event: events.CallbackQuery.Event):
     button_message = await event.get_message()
     comm, chat_id, chat_title = event.data.decode('UTF-8').split('/')
     chat = await Chat.get(id=chat_id)
@@ -177,7 +167,7 @@ async def back_to_set(event: events.CallbackQuery.Event):
         await button_message.edit(text=text, buttons=keyboard)
 
 @bot.on(events.CallbackQuery(pattern=r'^mute_dur_dec/'))
-async def back_to_set(event: events.CallbackQuery.Event):
+async def mute_dur_dec(event: events.CallbackQuery.Event):
     button_message = await event.get_message()
     comm, chat_id, chat_title = event.data.decode('UTF-8').split('/')
     chat = await Chat.get(id=chat_id)
@@ -190,24 +180,22 @@ async def back_to_set(event: events.CallbackQuery.Event):
         await button_message.edit(text=text, buttons=keyboard)
 
 @bot.on(events.CallbackQuery(pattern=r'^penalty_mode/'))
-async def back_to_set(event: events.CallbackQuery.Event):
+async def penalty_mode_change(event: events.CallbackQuery.Event):
     button_message = await event.get_message()
     comm, chat_id, chat_title = event.data.decode('UTF-8').split('/')
     chat = await Chat.get(id=chat_id)
-    if chat.penalty_mode == 'mute':
-        chat.penalty_mode = 'kick'
-        await chat.save()
-    elif chat.penalty_mode == 'kick':
-        chat.penalty_mode = 'ban'
-        await chat.save()
-    else:
-        chat.penalty_mode = 'mute'
-        await chat.save()
+    penalty_modes = {
+        'mute': 'kick',
+        'kick': 'ban',
+        'ban': 'mute'
+    }
+    chat.penalty_mode = penalty_modes[chat.penalty_mode]
+    await chat.save()
     text, keyboard = templates.settings_message(chat_id, chat_title, chat)
     await button_message.edit(text=text, buttons=keyboard)
 
 @bot.on(events.CallbackQuery(pattern=r'^filter/'))
-async def back_to_set(event: events.CallbackQuery.Event):
+async def filter_mode_change(event: events.CallbackQuery.Event):
     button_message = await event.get_message()
     comm, chat_id, chat_title = event.data.decode('UTF-8').split('/')
     chat = await Chat.get(id=chat_id)

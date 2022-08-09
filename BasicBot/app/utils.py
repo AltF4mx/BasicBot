@@ -101,27 +101,56 @@ def admin_moderate_command(command: str):
         return handle
     return decorator
 
+async def kick(chat_id: int, user_id: int, mention: str, warns_num: int, warns_word: str, chat):
+    try:
+        await bot.kick_participant(chat_id, user_id)
+    except ChatAdmitRequiredError:
+        return f'Участник {mention} получил {warns_num} {warns_word}. Я бы его удалил,' \
+                f'но мне недостает прав...'
+    else:
+        chat.users_kicked += 1
+        await chat.save()
+        return f'Участник {mention} получил {warns_num} {warns_word} и теперь покидает нас...'
+
+async def ban(chat_id: int, user_id: int, mention: str, warns_num: int, warns_word: str, chat):
+    try:
+        await bot.edit_permissions(chat_id, user_id, view_messages=False)
+    except ChatAdmitRequiredError:
+        return f'Участник {mention} получил {warns_num} {warns_word}. Я бы его забанил,' \
+                f'но мне недостает прав...'
+    else:
+        chat.users_banned += 1
+        await chat.save()
+        return f'Участник {mention} получил {warns_num} {warns_word} и теперь покидает нас навсегда...'
+
+async def mute(chat_id: int, user_id: int, mention: str, warns_num: int, warns_word: str, chat):
+    mute_dur = chat.mute_duration
+    try:
+        await bot.edit_permissions(chat_id, user_id, timedelta(minutes=mute_dur), send_messages=False)
+    except ChatAdminRequiredError:
+        return f'Участник {mention} получил {warns_num} {warns_word}. Я бы его замьютил,' \
+               f'но мне недостает прав...'
+    else:
+        chat.users_muted += 1
+        await chat.save()
+        return f'Участник {mention} получил {warns_num} {warns_word} и теперь должен помолчать {mute_dur} минут.'
+        
 async def warn(chat_id: int, user_id: int, mention: str):
     member = await ChatMember.get_or_none(chat_id=chat_id, user_id=user_id)
     warns = member.warns if member else 0
     chat = await Chat.get(id=chat_id)
     warns_num = chat.warns_number
-    mute_dur = chat.mute_duration
     warns = min(warns + 1, warns_num)
     morph = pymorphy2.MorphAnalyzer()
     warns_word = morph.parse('предупреждение')[0].make_agree_with_number(warns).word
     await update_chat_member(chat_id, user_id, warns=warns)
-    
+    penalty = {
+        'mute': mute,
+        'kick': kick,
+        'ban': ban
+    }
     if warns == warns_num:
-        try:
-            await bot.edit_permissions(chat_id, user_id, timedelta(minutes=mute_dur), send_messages=False)
-        except ChatAdminRequiredError:
-            return f'Участник {mention} получил {warns_num} {warns_word}. Я бы его замьютил,' \
-                   f'но мне недостает прав...'
-        else:
-            chat.users_muted += 1
-            await chat.save()
-            return f'Участник {mention} получил {warns_num} {warns_word} и теперь должен помолчать {mute_dur} минут.'
+        return await penalty[chat.penalty_mode](chat_id, user_id, mention, warns_num, warns_word, chat)
     return f'Участнику {mention} выдано предупреждение ({warns}/{warns_num})'
 
 async def unwarn(chat_id: int, user_id: int, mention: str):
