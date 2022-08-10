@@ -45,6 +45,7 @@ async def is_admin(chat_id: int, user_id: int):
     return member and member.is_admin
 
 async def reload_admins(chat_id):
+    print('func enabled for' + str(chat_id))
     await ChatMember.filter(chat_id=chat_id, is_admin=True).update(is_admin=False)
     
     participants = await bot.get_participants(chat_id, filter=ChannelParticipantsAdmins())
@@ -54,6 +55,8 @@ async def reload_admins(chat_id):
     chat = await Chat.get(id=chat_id)
     chat.last_admins_update = timezone.now()
     await chat.save()
+    print('from func')
+    print(chat.last_admins_update)
 
 def admin_command(command: str):
     def decorator(func):

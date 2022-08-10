@@ -23,17 +23,17 @@ from app.slang_checker import RegexpProc, PymorphyProc, get_words
 @bot.on(events.ChatAction())
 async def on_join(event: events.ChatAction.Event):
     if event.is_group and event.user_added and event.user_id == bot.me.id:
-        await bot.send_message(event.chat.id, 'Всем привет!')
-        await bot.send_message(event.chat.id, 'Я ' + \
+        await bot.send_message(event.chat.id, 'Всем привет! \U0001F44B')
+        await bot.send_message(event.chat.id, 'Я бот-модератор ' + \
         f'<a href="tg://user?id={bot.me.id}">{bot.me.first_name}</a>' + '!')
-        
-        await bot.send_message(event.chat.id, 'Я послежу тут за вами немного ;)')
+        await bot.send_message(event.chat.id, 'Я послежу тут за вами немного \U0001F440')
         
         chat = await Chat.get_or_none(id=event.chat.id)
         if chat is None:
             chat = Chat(id=event.chat.id)
             await chat.save()
-            await reload_admins(event.chat.id)
+        await reload_admins(event.chat.id)
+        chat = await Chat.get(id=event.chat.id)
         chat.joined = timezone.now()        
         users = await bot.get_participants(event.chat.id)
         chat.users = len(users)
@@ -46,9 +46,16 @@ async def on_join(event: events.ChatAction.Event):
 
 @bot.on(events.ChatAction(func=lambda e: (e.user_added or e.user_joined) and e.user_id != bot.me.id))
 async def greet(event: events.ChatAction.Event):
+    chat = await Chat.get(id=event.chat.id)
+    p_mods = {
+        'mute': f'\U0001F6A7 мьютом на {chat.mute_duration} минут.',
+        'kick': '\U0001F6AB исключением из группы.',
+        'ban': '\U0001F528 баном!'
+    }
     await event.respond('Привет, ' + \
                         f'<a href="tg://user?id={event.user.id}">{event.user.first_name}</a>' + \
-                        ', веди себя хорошо!')
+                        ', веди себя хорошо! Мат здесь запрещен, нарушение карается ' + \
+                        p_mods[chat.penalty_mode])
     
     users = await bot.get_participants(event.chat.id)
     chat.users = len(users)
@@ -70,6 +77,7 @@ async def new_message(event: Message):
     chat = await Chat.get(id=event.chat.id)
     if timezone.now() - chat.last_admins_update > timedelta(hours=1):
         await reload_admins(event.chat.id)
+    chat = await Chat.get(id=event.chat.id)
     chat.messages_checked += 1
     await chat.save()
     
