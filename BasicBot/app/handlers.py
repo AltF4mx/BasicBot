@@ -22,6 +22,12 @@ from app.slang_checker import RegexpProc, PymorphyProc, get_words
 
 @bot.on(events.ChatAction())
 async def on_join(event: events.ChatAction.Event):
+    '''Приветствие участников при вступлении в группу (чат).
+    
+    Так же создает строку в базе для группы при отсутствии,
+    сохраняет количество участников, обнуляет статистику,
+    обновляет список админов.
+    '''
     if event.is_group and event.user_added and event.user_id == bot.me.id:
         await bot.send_message(event.chat.id, 'Всем привет! \U0001F44B')
         await bot.send_message(event.chat.id, 'Я бот-модератор ' + \
@@ -46,16 +52,24 @@ async def on_join(event: events.ChatAction.Event):
 
 @bot.on(events.ChatAction(func=lambda e: (e.user_added or e.user_joined) and e.user_id != bot.me.id))
 async def greet(event: events.ChatAction.Event):
+    '''Приветствие нового участника группы (чата).
+    
+    Так же новый участник предупреждается о наказание за использование
+    матерных слов если включен мат фильтр, если не включен -
+    просто приветствуется. В базе обновляется количество участников.
+    '''
     chat = await Chat.get(id=event.chat.id)
     p_mods = {
         'mute': f'\U0001F6A7 мьютом на {chat.mute_duration} минут.',
         'kick': '\U0001F6AB исключением из группы.',
         'ban': '\U0001F528 баном!'
     }
+    penalty_warn = ''
+    if chat.filter_enable:
+        penalty_warn = ' Мат здесь запрещен, нарушение карается ' + p_mods[chat.penalty_mode]
     await event.respond('Привет, ' + \
                         f'<a href="tg://user?id={event.user.id}">{event.user.first_name}</a>' + \
-                        ', веди себя хорошо! Мат здесь запрещен, нарушение карается ' + \
-                        p_mods[chat.penalty_mode])
+                        ', веди себя хорошо!' + penalty_warn)
     
     users = await bot.get_participants(event.chat.id)
     chat.users = len(users)
@@ -63,26 +77,40 @@ async def greet(event: events.ChatAction.Event):
 
 @bot.on(events.NewMessage(func=lambda e: e.text.lower() == '/reload' and e.is_group))
 async def reload_command(event: Message):
+    '''Обработка команды обновления списка админов.'''
     await reload_admins(event.chat.id)
     await event.respond('Список админов группы обновлен.')
     
 @bot.on(events.NewMessage(func=lambda e: e.text.lower() == '/uplwords' and e.is_group))
 async def upload_words(event: Message):
+    '''Обработка команды загрузки списка ненормативных слов.
+    
+    Используется однократно после разворота бота на сервере, либо после
+    обнуления базы. Далее работа ведется с базой.
+    '''
     await upload_words_from_json()
     await event.respond('Список ненормативных слов загружен в базу.')
 
-
 @bot.on(events.NewMessage(func=lambda e: e.is_group))
 async def new_message(event: Message):
+    '''Обработка новых сообщений в группе (чате).
+    
+    При каждом сообщении обновляется список админов, если с прошлого
+    обновления прошло более часа. Если включен мат фильтр, сообщение
+    проверяется на наличие мата выбранным способом, счетчик проверенных с
+    ообщений увеличивается на 1, при выявлении мата, активируется предупреждение,
+    счетчик плохих слов увеличивается на 1, сообщение с матом удаляется,
+    в чат соощается о нарушении.
+    '''
     chat = await Chat.get(id=event.chat.id)
     if timezone.now() - chat.last_admins_update > timedelta(hours=1):
         await reload_admins(event.chat.id)
-    chat = await Chat.get(id=event.chat.id)
-    chat.messages_checked += 1
-    await chat.save()
     
     word_filter = {'dict': PymorphyProc, 'pattern': RegexpProc}
+    chat = await Chat.get(id=event.chat.id)
     if chat.filter_enable:
+        chat.messages_checked += 1
+        await chat.save()
         await get_words()
         if word_filter[chat.filter_mode].test(event.text):
             member = await ChatMember.get_or_none(chat_id=event.chat.id, user_id=event.sender.id)
@@ -96,6 +124,13 @@ async def new_message(event: Message):
 
 @bot.on(events.CallbackQuery(pattern=r'^censored/'))
 async def show_bad_text(event: events.CallbackQuery.Event):
+    '''Обработчик нажатия кнопки "Показать сообщение?"
+    
+    По нажатию кнопки проверяет является ли нажавший админом,
+    если да - текст сообщения направляется нажавшему кнопку,
+    кнопка удаляется. Если нажавший пользователь не является
+    админом - выдается предупреждение об этом.
+    '''
     sender = await ChatMember.get_or_none(chat_id=event.chat.id, user_id=event.sender_id)
     button_message = await event.get_message()
     if sender.is_admin:
@@ -108,22 +143,29 @@ async def show_bad_text(event: events.CallbackQuery.Event):
 
 @bot.on(events.CallbackQuery(pattern=r'^stat/'))
 async def show_stat(event: events.CallbackQuery.Event):
-    morph = pymorphy2.MorphAnalyzer()
+    '''Обработчик нажатия кнопки "Статистика".
+    
+    По нажатию кнопки получается информация, переданная кнопкой,
+    обновляется количество участников, если нажавший кнопку,
+    сообщение с настройками трансформируется в сообщение со статистикой
+    и кнопкой "Закрыть" и "Назад".
+    '''
     comm, chat_id, chat_title = event.data.decode('UTF-8').split('/')
-    sender = await ChatMember.get_or_none(chat_id=chat_id, user_id=event.sender_id)
     chat = await Chat.get(id=chat_id)
     button_message = await event.get_message()
     users = await bot.get_participants(int(chat_id))
     chat.users = len(users)
     await chat.save()
-    if sender.is_admin:
-        text, keyboard = templates.stat_message(chat_id, chat_title, chat)
-        await button_message.edit(text=text, buttons=keyboard)
-    else:
-        await event.answer('Только для админов!', alert=True)
+    text, keyboard = templates.stat_message(chat_id, chat_title, chat)
+    await button_message.edit(text=text, buttons=keyboard)
 
 @bot.on(events.CallbackQuery(pattern=r'^close/'))
-async def stat_close(event: events.CallbackQuery.Event):
+async def close_button(event: events.CallbackQuery.Event):
+    '''Обработчик нажатия кнопки "Закрыть".
+    
+    Удаляет сообщение с данной кнопкой, если удаление невозможно -
+    показывает всплывающее сообщение об этом.
+    '''
     button_message = await event.get_message()
     try:
         await button_message.delete()
@@ -132,6 +174,11 @@ async def stat_close(event: events.CallbackQuery.Event):
     
 @bot.on(events.CallbackQuery(pattern=r'^back_to_set/'))
 async def back_to_set(event: events.CallbackQuery.Event):
+    '''Обработчик нажатия кнопки "Назад к настройкам".
+    
+    Заново подгружает и показывает сообщение с настройками вместо
+    сообщения со статистикой.
+    '''
     button_message = await event.get_message()
     comm, chat_id, chat_title = event.data.decode('UTF-8').split('/')
     chat = await Chat.get(id=chat_id)
@@ -140,6 +187,11 @@ async def back_to_set(event: events.CallbackQuery.Event):
     
 @bot.on(events.CallbackQuery(pattern=r'^warns_num_inc/'))
 async def warn_num_inc(event: events.CallbackQuery.Event):
+    '''Обработчик нажатия кнопки + в настройке количества предупреждений.
+    
+    Увеличивает количество предупреждений на 1 с каждым нажатием с записью
+    в базу, но не более 5.
+    '''
     button_message = await event.get_message()
     comm, chat_id, chat_title = event.data.decode('UTF-8').split('/')
     chat = await Chat.get(id=chat_id)
@@ -153,6 +205,11 @@ async def warn_num_inc(event: events.CallbackQuery.Event):
 
 @bot.on(events.CallbackQuery(pattern=r'^warns_num_dec/'))
 async def warn_num_dec(event: events.CallbackQuery.Event):
+    '''Обработчик нажатия кнопки - в настройке количества предупреждений.
+    
+    Уменьшает количество предупреждений на 1 с каждым нажатием с записью
+    в базу, но не менее 1.
+    '''
     button_message = await event.get_message()
     comm, chat_id, chat_title = event.data.decode('UTF-8').split('/')
     chat = await Chat.get(id=chat_id)
@@ -166,6 +223,11 @@ async def warn_num_dec(event: events.CallbackQuery.Event):
 
 @bot.on(events.CallbackQuery(pattern=r'^mute_dur_inc/'))
 async def mute_dur_inc(event: events.CallbackQuery.Event):
+    '''Обработчик нажатия кнопки + в настройке продолжительности мьюта.
+    
+    Увеличивает продолжительность мьюта на 5 минут с каждым нажатием
+    с записью в базу, но не более 60 минут.
+    '''
     button_message = await event.get_message()
     comm, chat_id, chat_title = event.data.decode('UTF-8').split('/')
     chat = await Chat.get(id=chat_id)
@@ -179,6 +241,11 @@ async def mute_dur_inc(event: events.CallbackQuery.Event):
 
 @bot.on(events.CallbackQuery(pattern=r'^mute_dur_dec/'))
 async def mute_dur_dec(event: events.CallbackQuery.Event):
+    '''Обработчик нажатия кнопки - в настройке продолжительности мьюта.
+    
+    Уменьшает продолжительность мьюта на 5 минут с каждым нажатием
+    с записью в базу, но не менее 5 минут.
+    '''
     button_message = await event.get_message()
     comm, chat_id, chat_title = event.data.decode('UTF-8').split('/')
     chat = await Chat.get(id=chat_id)
@@ -192,6 +259,10 @@ async def mute_dur_dec(event: events.CallbackQuery.Event):
 
 @bot.on(events.CallbackQuery(pattern=r'^penalty_mode/'))
 async def penalty_mode_change(event: events.CallbackQuery.Event):
+    '''Обработчик нажатия кнопки "Наказание за мат".
+    
+    Переключает виды наказания за мат по кругу mute - kick - ban.
+    '''
     button_message = await event.get_message()
     comm, chat_id, chat_title = event.data.decode('UTF-8').split('/')
     chat = await Chat.get(id=chat_id)
@@ -207,6 +278,10 @@ async def penalty_mode_change(event: events.CallbackQuery.Event):
 
 @bot.on(events.CallbackQuery(pattern=r'^filter/'))
 async def filter_mode_change(event: events.CallbackQuery.Event):
+    '''Обработчик нажатия кнопки "Антимат".
+    
+    По нажатию кнопки переключает способ фильтрации мата Словарь - Шаблон - Выкл.
+    '''
     button_message = await event.get_message()
     comm, chat_id, chat_title = event.data.decode('UTF-8').split('/')
     chat = await Chat.get(id=chat_id)
@@ -229,8 +304,15 @@ async def greet_command(event: Message):
     
 @admin_command('listword')
 async def show_list_word(event: Message):
+    '''Обработчик комады вывода списка плохих слов.
+    
+    В текущей версии выводит в группу количество слов в базе и предлагает ввести
+    начальные буквы в ответном сообщении. При получении отправляет в ЛС список слов,
+    начинающихся с введенных букв или сообщает об отсутствии таких слов.
+    to do: доработать процесс чтобы работа со словарем проводилась в настройках.
+    '''
     word_list = await get_words()
-    await event.respond(f'В списке {len(word_list)} слов(а).')
+    await event.respond(f'''В списке {len(word_list)} {templates.agree_word('слово', len(word_list))}.''')
     await event.respond('Введите начальные буквы в ответном сообщении для вывода ограниченного количества слов:')
     
     @bot.on(events.NewMessage(func=lambda e: e.is_group))
@@ -256,6 +338,12 @@ async def show_list_word(event: Message):
 
 @admin_command('addword')
 async def add_word(event: Message):
+    '''Обработчик комады добавления плохого слова в список.
+    
+    В текущей версии предлагает в ответном сообщении ввести слово, которое необходимо
+    добавить, при получении ответного сообщения нормализует слово и добавляет в базу.
+    to do: доработать процесс чтобы работа со словарем проводилась в настройках.
+    '''
     await event.respond('В ответном сообщении напишите слово, которое нужно добавить.')
     
     @bot.on(events.NewMessage(func=lambda e: e.is_group))
@@ -272,6 +360,12 @@ async def add_word(event: Message):
 
 @admin_command('delword')
 async def del_word(event: Message):
+    '''Обработчик комады удаления плохого слова из списка.
+    
+    В текущей версии предлагает в ответном сообщении ввести слово, которое необходимо
+    удалить, при получении ответного сообщения пытается удалить слово из базы.
+    to do: доработать процесс чтобы работа со словарем проводилась в настройках.
+    '''
     await event.respond('В ответном сообщении напишите слово, которое хотите удалить.')
     
     @bot.on(events.NewMessage(func=lambda e: e.is_group))
@@ -289,19 +383,27 @@ async def del_word(event: Message):
                 
 @admin_command('help')
 async def show_help(event: Message):
+    '''Обработчик команды помощи.
+    
+    В текущей версии реагирует только на команды админа, посылая ему в ЛС
+    сообщение со справкой.
+    to do: доработать функцию выведя формирование сообщения в отдельный модуль,
+    команду сделать для всех, сообщение формировать в зависимости от того,
+    является ли пользователь админом.
+    '''
     text = "Вы можете использовать следующие команды, отвечая на сообщения пользователя:\n \
     /mute и /unmute - запретить/разрешить пользователю писать;\n \
     /ban и /unban - забанить/разбанить пользователя;\n \
     /kick - исключить пльзователя из чата;\n \
     /warn и /unwarn - предупредить/снять предупреждение с пользователя.\n \
     \nСледующие команды не требуют цитирования:\n \
-    /listword - вывести список запрещенных слов в словаре;\n \
-    /addword и /delword - добавить/удалить запрещенное слово из словаря."
+    /settings - настроить бота (настройки делаются в ЛС)."
     await bot.send_message(event.sender_id, text)
     await event.respond('Список команд направлен Вам в ЛС.')
 
 @admin_command('settings')
 async def show_settings(event: Message):
+    '''При получении команды /settings направляет в ЛС сообщение с настройками.'''
     chat_id = event.chat.id
     chat_title = event.chat.title
     chat = await Chat.get(id=chat_id)
