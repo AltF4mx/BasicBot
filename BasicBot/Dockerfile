@@ -1,6 +1,6 @@
 FROM python:3.10.6-slim
 
-WORKDIR $HOME/containers/TGModerBot
+WORKDIR /app
 
 COPY requirements.txt .
 

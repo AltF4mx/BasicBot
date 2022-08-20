@@ -39,7 +39,7 @@ async def developer_menu_command(event: Message):
 async def close_button(event: events.CallbackQuery.Event):
     '''Обработчик нажатия кнопки "Прислать лог".'''
     try:
-        await bot.send_file(event.sender_id, 'basicbot.log')
+        await bot.send_file(event.sender_id, './data/basicbot.log')
     except Exception as Ex:
         await event.answer('Произошла ошибка при отправке, подробности в логе...', alert=True)
         handlers_log.error(Ex)

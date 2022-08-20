@@ -17,7 +17,7 @@ bot.parse_mode = 'HTML'
 # Настраиваем логгирование
 log = logging.getLogger('TGDroidModer')
 log.setLevel(logging.INFO)
-file_handler = logging.FileHandler('basicbot.log')
+file_handler = logging.FileHandler('./data/basicbot.log')
 console_out = logging.StreamHandler()
 formatter = logging.Formatter('[%(asctime)s | %(name)s] %(levelname)s: %(message)s', datefmt='%m.%d.%Y %H:%M:%S')
 file_handler.setFormatter(formatter)
