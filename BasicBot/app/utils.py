@@ -17,6 +17,12 @@ from app.models import Chat, ChatMember, Slang
 
 import config
 
+morph = pymorphy2.MorphAnalyzer()
+utils_log = logging.getLogger('TGDroidModer.utils')
+
+def agree_word(word: str, number: int):
+    return morph.parse(word)[0].make_agree_with_number(number).word
+
 async def upload_words_from_json():
     with open("./word_data.json", 'r') as w:
         words = json.load(w)
@@ -25,16 +31,18 @@ async def upload_words_from_json():
 
 async def update_slang(word: str):
     await Slang.update_or_create(word=word)
-    logging.info(f'Слово {word} загружено')
+    utils_log.info(f'Слово {word} загружено')
 
 async def del_from_slang(word: str):
     if not await Slang.filter(word=word).exists():
+        utils_log.info(f'Слово {word} не найдено.')
         return False
     try:
         await Slang.filter(word=word).delete()
-        logging.info(f'Слово {word} удалено.')
+        utils_log.info(f'Слово {word} удалено.')
         return True
     except:
+        utils_log.error('Somewhat wrong...')
         return False
 
 async def update_chat_member(chat_id: int, user_id: int, **kwargs):
@@ -47,7 +55,7 @@ async def is_admin(chat_id: int, user_id: int):
 async def reload_admins(chat_id):
     await ChatMember.filter(chat_id=chat_id, is_admin=True).update(is_admin=False)
     
-    participants = await bot.get_participants(chat_id, filter=ChannelParticipantsAdmins())
+    participants = await bot.get_participants(chat_id, filter=ChannelParticipantsAdmins)
     for participant in participants:
         await update_chat_member(chat_id, participant.id, is_admin=True)
     
@@ -62,12 +70,15 @@ def admin_command(command: str):
         async def handle(event: Message):
             if not await is_admin(event.chat.id, event.sender.id):
                 await event.reply('Не админ, не командуй!))')
+                utils_log.warning(f'Участник группы {event.chat.title} {event.sender.first_name} \
+воспользовался командой {command}')
                 return
     
             try:
                 await func(event)
             except ChatAdminRequiredError:
                 await event.respond('Упс... А я не админ...')
+                utils_log.warning('Нехватка прав админа для выполнения команды {command}')
                 
         return handle
     return decorator

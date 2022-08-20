@@ -1,11 +1,6 @@
-import pymorphy2
-
 from telethon.tl.custom import Button
 
-morph = pymorphy2.MorphAnalyzer()
-
-def agree_word(word: str, number: int):
-    return morph.parse(word)[0].make_agree_with_number(number).word
+from app.utils import agree_word
 
 def settings_message(chat_id: str, chat_title: str, chat):
     chat_id, chat_title, chat = chat_id, chat_title, chat

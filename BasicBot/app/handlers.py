@@ -1,4 +1,5 @@
 import re
+import logging
 
 import pymorphy2
 
@@ -16,9 +17,11 @@ from app.utils import update_chat_member
 from app.utils import upload_words_from_json
 from app.utils import update_slang
 from app.utils import del_from_slang
-from app.utils import warn, unwarn, get_mention
+from app.utils import warn, unwarn, get_mention, agree_word
 from app.models import Chat, ChatMember, Slang
 from app.slang_checker import RegexpProc, PymorphyProc, get_words
+
+handlers_log = logging.getLogger('TGDroidModer.handlers')
 
 @bot.on(events.ChatAction())
 async def on_join(event: events.ChatAction.Event):
@@ -49,6 +52,7 @@ async def on_join(event: events.ChatAction.Event):
         chat.users_kicked = 0
         chat.users_banned = 0
         await chat.save()
+        handlers_log.info(f'Успешно вступил в группу {event.chat.title}, {chat.users} {agree_word("участник", chat.users)}.')
 
 @bot.on(events.ChatAction(func=lambda e: (e.user_added or e.user_joined) and e.user_id != bot.me.id))
 async def greet(event: events.ChatAction.Event):
@@ -74,6 +78,8 @@ async def greet(event: events.ChatAction.Event):
     users = await bot.get_participants(event.chat.id)
     chat.users = len(users)
     await chat.save()
+    await reload_admins(event.chat.id)
+    handlers_log.info(f'В группе {event.chat.title} новый участник {event.user.first_name} ({chat.users}).')
 
 @bot.on(events.NewMessage(func=lambda e: e.text.lower() == '/reload' and e.is_group))
 async def reload_command(event: Message):
@@ -90,6 +96,7 @@ async def upload_words(event: Message):
     '''
     await upload_words_from_json()
     await event.respond('Список ненормативных слов загружен в базу.')
+    handlers_log.info('Словарь загружен в базу.')
 
 @bot.on(events.NewMessage(func=lambda e: e.is_group))
 async def new_message(event: Message):
@@ -140,6 +147,7 @@ async def show_bad_text(event: events.CallbackQuery.Event):
         await button_message.edit(buttons=None)
     else:
         await event.answer('Только для админов!', alert=True)
+        handlers_log.warning(f'Участник {event.sender.first_name} группы {event.chat.title} нажал кнопку показать.')
 
 @bot.on(events.CallbackQuery(pattern=r'^stat/'))
 async def show_stat(event: events.CallbackQuery.Event):
@@ -291,6 +299,7 @@ async def filter_mode_change(event: events.CallbackQuery.Event):
     elif chat.filter_enable and chat.filter_mode == 'pattern':
         chat.filter_enable = False
         await chat.save()
+        handlers_log.warning(f'Админ группы {chat_title} {event.sender.firts_name} отключил матфильтр.')
     else:
         chat.filter_enable = True
         chat.filter_mode = 'dict'
@@ -312,7 +321,7 @@ async def show_list_word(event: Message):
     to do: доработать процесс чтобы работа со словарем проводилась в настройках.
     '''
     word_list = await get_words()
-    await event.respond(f'''В списке {len(word_list)} {templates.agree_word('слово', len(word_list))}.''')
+    await event.respond(f'''В списке {len(word_list)} {agree_word('слово', len(word_list))}.''')
     await event.respond('Введите начальные буквы в ответном сообщении для вывода ограниченного количества слов:')
     
     @bot.on(events.NewMessage(func=lambda e: e.is_group))
@@ -397,7 +406,7 @@ async def show_help(event: Message):
     /kick - исключить пльзователя из чата;\n \
     /warn и /unwarn - предупредить/снять предупреждение с пользователя.\n \
     \nСледующие команды не требуют цитирования:\n \
-    /settings - настроить бота (настройки делаются в ЛС)."
+    /settings - настроить бота (управление настройками в ЛС)."
     await bot.send_message(event.sender_id, text)
     await event.respond('Список команд направлен Вам в ЛС.')
 

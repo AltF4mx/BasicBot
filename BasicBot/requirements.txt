@@ -1,0 +1,8 @@
+aerich==0.6.3
+aiosqlite==0.17.0
+httplib2==0.20.2
+pymorphy2==0.9.1
+pymorphy2-dicts-ru==2.4.417127.4579844
+requests==2.25.1
+Telethon==1.24.0
+tortoise-orm==0.19.1
