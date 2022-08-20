@@ -14,7 +14,6 @@ def developer_menu():
     ]
     return text, keyboard
 
-
 def settings_message(chat_id: str, chat_title: str, chat):
     chat_id, chat_title, chat = chat_id, chat_title, chat
     text = f'Настройки для группы {chat_title}:'

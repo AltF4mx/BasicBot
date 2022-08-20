@@ -25,6 +25,26 @@ import config
 
 handlers_log = logging.getLogger('TGDroidModer.handlers')
 
+# Обработчик команд и кнопок меню разработчика.
+@bot.on(events.NewMessage(func=lambda e: e.text.lower() == '/dev_menu' and e.is_private))
+async def developer_menu_command(event: Message):
+    '''Отправляет меню разработчика только мне.'''
+    if event.sender.id == config.DEV_ID:
+        text, keyboard = templates.developer_menu()
+        await bot.send_message(event.sender.id, text, buttons=keyboard)
+    else:
+        handlers_log.warning(f'Внимание! Пользователь {event.sender.first_name} ввел девелоперскую команду!')
+        
+@bot.on(events.CallbackQuery(pattern=r'^send_log/'))
+async def close_button(event: events.CallbackQuery.Event):
+    '''Обработчик нажатия кнопки "Прислать лог".'''
+    try:
+        await bot.send_file(event.sender_id, 'basicbot.log')
+    except Exception as Ex:
+        await event.answer('Произошла ошибка при отправке, подробности в логе...', alert=True)
+        handlers_log.error(Ex)
+
+# Обработчики событий в чате (включая обработчик сообщений с фильтром) кроме сообщений с командами.
 @bot.on(events.ChatAction())
 async def on_join(event: events.ChatAction.Event):
     '''Приветствие участников при вступлении в группу (чат).
@@ -83,41 +103,6 @@ async def greet(event: events.ChatAction.Event):
     await reload_admins(event.chat.id)
     handlers_log.info(f'В группе {event.chat.title} новый участник {event.user.first_name} ({chat.users}).')
 
-@bot.on(events.NewMessage(func=lambda e: e.text.lower() == '/reload' and e.is_group))
-async def reload_command(event: Message):
-    '''Обработка команды обновления списка админов.'''
-    await reload_admins(event.chat.id)
-    await event.respond('Список админов группы обновлен.')
-
-@bot.on(events.NewMessage(func=lambda e: e.text.lower() == '/dev_menu' and e.is_private))
-async def developer_menu_command(event: Message):
-    '''Отправляет меню разработчика только мне.'''
-    if event.sender.id == config.DEV_ID:
-        text, keyboard = templates.developer_menu()
-        await bot.send_message(event.sender.id, text, buttons=keyboard)
-    else:
-        handlers_log.warning(f'Внимание! Пользователь {event.sender.first_name} ввел девелоперскую команду!')
-        
-@bot.on(events.CallbackQuery(pattern=r'^send_log/'))
-async def close_button(event: events.CallbackQuery.Event):
-    '''Обработчик нажатия кнопки "Прислать лог".'''
-    try:
-        await bot.send_file(event.sender_id, 'basicbot.log')
-    except Exception as Ex:
-        await event.answer('Произошла ошибка при отправке, подробности в логе...', alert=True)
-        handlers_log.error(Ex)
-    
-@bot.on(events.NewMessage(func=lambda e: e.text.lower() == '/uplwords' and e.is_group))
-async def upload_words(event: Message):
-    '''Обработка команды загрузки списка ненормативных слов.
-    
-    Используется однократно после разворота бота на сервере, либо после
-    обнуления базы. Далее работа ведется с базой.
-    '''
-    await upload_words_from_json()
-    await event.respond('Список ненормативных слов загружен в базу.')
-    handlers_log.info('Словарь загружен в базу.')
-
 @bot.on(events.NewMessage(func=lambda e: e.is_group))
 async def new_message(event: Message):
     '''Обработка новых сообщений в группе (чате).
@@ -173,6 +158,160 @@ async def show_bad_text(event: events.CallbackQuery.Event):
         await event.answer('Только для админов!', alert=True)
         handlers_log.warning(f'Участник {event.sender.first_name} группы {event.chat.title} нажал кнопку показать.')
 
+# Обработчики чсужебных команд и команд первоначальной настройки.
+@bot.on(events.NewMessage(func=lambda e: e.text.lower() == '/reload' and e.is_group))
+async def reload_command(event: Message):
+    '''Обработка команды обновления списка админов.'''
+    await reload_admins(event.chat.id)
+    await event.respond('Список админов группы обновлен.')
+    
+@bot.on(events.NewMessage(func=lambda e: e.text.lower() == '/uplwords' and e.is_group))
+async def upload_words(event: Message):
+    '''Обработка команды загрузки списка ненормативных слов.
+    
+    Используется однократно после разворота бота на сервере, либо после
+    обнуления базы. Далее работа ведется с базой.
+    '''
+    await upload_words_from_json()
+    await event.respond('Список ненормативных слов загружен в базу.')
+    handlers_log.info('Словарь загружен в базу.')
+
+@admin_command('greet')
+async def greet_command(event: Message):
+    await event.respond('Привет, хозяин!')
+    
+@admin_command('listword')
+async def show_list_word(event: Message):
+    '''Обработчик комады вывода списка плохих слов.
+    
+    В текущей версии выводит в группу количество слов в базе и предлагает ввести
+    начальные буквы в ответном сообщении. При получении отправляет в ЛС список слов,
+    начинающихся с введенных букв или сообщает об отсутствии таких слов.
+    to do: доработать процесс чтобы работа со словарем проводилась в настройках.
+    '''
+    word_list = await get_words()
+    await event.respond(f'''В списке {len(word_list)} {agree_word('слово', len(word_list))}.''')
+    await event.respond('Введите начальные буквы в ответном сообщении для вывода ограниченного количества слов:')
+    
+    @bot.on(events.NewMessage(func=lambda e: e.is_group))
+    async def word_list_filter(event: Message):
+        if event.is_reply:
+            reply_to = await event.get_reply_message()
+            if reply_to.sender.bot:
+                word_list_cut = \
+                    await Slang.filter(word__startswith=event.text.lower()).values_list('word', flat=True)
+                
+                if not word_list_cut:
+                    await event.respond(f'В списке нет слов, начинающихся на "{event.text}"')
+                    await event.respond('Добавить слово можно при помощи команды /addword.')
+                    bot.remove_event_handler(word_list_filter, events.NewMessage)
+                    return
+                
+                await bot.send_message(event.sender_id, ', '.join(word_list_cut))
+                await event.respond('Список слов направлен Вам в ЛС.')
+                await event.respond('Удалить слово можно при помощи команды /delword.')
+                await event.respond('Добавить слово можно при помощи команды /addword.')
+                
+                bot.remove_event_handler(word_list_filter, events.NewMessage)
+
+@admin_command('addword')
+async def add_word(event: Message):
+    '''Обработчик комады добавления плохого слова в список.
+    
+    В текущей версии предлагает в ответном сообщении ввести слово, которое необходимо
+    добавить, при получении ответного сообщения нормализует слово и добавляет в базу.
+    to do: доработать процесс чтобы работа со словарем проводилась в настройках.
+    '''
+    await event.respond('В ответном сообщении напишите слово, которое нужно добавить.')
+    
+    @bot.on(events.NewMessage(func=lambda e: e.is_group))
+    async def normalise_and_load(event: Message):
+        if event.is_reply:
+            reply_to = await event.get_reply_message()
+            if reply_to.sender.bot:
+                morph = pymorphy2.MorphAnalyzer()
+                normal_word = morph.parse(event.text.lower())[0].normal_form
+                await update_slang(normal_word)
+                await event.respond(f'Слово {event.text} добавлено в словарь.')
+                
+                bot.remove_event_handler(normalise_and_load, events.NewMessage)
+
+@admin_command('delword')
+async def del_word(event: Message):
+    '''Обработчик комады удаления плохого слова из списка.
+    
+    В текущей версии предлагает в ответном сообщении ввести слово, которое необходимо
+    удалить, при получении ответного сообщения пытается удалить слово из базы.
+    to do: доработать процесс чтобы работа со словарем проводилась в настройках.
+    '''
+    await event.respond('В ответном сообщении напишите слово, которое хотите удалить.')
+    
+    @bot.on(events.NewMessage(func=lambda e: e.is_group))
+    async def lower_and_del(event: Message):
+        if event.is_reply:
+            reply_to = await event.get_reply_message()
+            if reply_to.sender.bot:
+                del_result = await del_from_slang(event.text.lower())
+                if del_result:
+                    await event.respond(f'Слово "{event.text}" удалено из словаря.')
+                else:
+                    await event.respond(f'В словаре нет слова "{event.text}".')
+        
+                bot.remove_event_handler(lower_and_del, events.NewMessage)
+                
+# Обработчики команд для админа (помощь и настройки).
+@admin_command('help')
+async def show_help(event: Message):
+    '''Обработчик команды помощи.
+    
+    В текущей версии реагирует только на команды админа, посылая ему в ЛС
+    сообщение со справкой.
+    to do: доработать функцию выведя формирование сообщения в отдельный модуль,
+    команду сделать для всех, сообщение формировать в зависимости от того,
+    является ли пользователь админом.
+    '''
+    text = "Вы можете использовать следующие команды, отвечая на сообщения пользователя:\n \
+    /mute и /unmute - запретить/разрешить пользователю писать;\n \
+    /ban и /unban - забанить/разбанить пользователя;\n \
+    /kick - исключить пльзователя из чата;\n \
+    /warn и /unwarn - предупредить/снять предупреждение с пользователя.\n \
+    \nСледующие команды не требуют цитирования:\n \
+    /settings - настроить бота (управление настройками в ЛС)."
+    try:
+        await bot.send_message(event.sender_id, text)
+    except Exception as Ex:
+        handlers_log.error(f'/help: Произошла ошибка при отправке сообщения {event.sender.first_name}.')
+        handlers_log.error(Ex)
+    await event.respond('Список команд направлен Вам в ЛС.')
+
+@admin_command('settings')
+async def show_settings(event: Message):
+    '''При получении команды /settings направляет в ЛС сообщение с настройками.'''
+    chat_id = event.chat.id
+    chat_title = event.chat.title
+    chat = await Chat.get(id=chat_id)
+    text, keyboard = templates.settings_message(chat_id, chat_title, chat)
+    await event.reply('Перейдите в ЛС для настройки бота.')
+    try:
+        await bot.send_message(event.sender_id, text, buttons=keyboard)
+    except Exception as Ex:
+        handlers_log.error(f'/settings: Произошла ошибка при отправке сообщения {event.sender.first_name}.')
+        handlers_log.error(Ex)
+
+# Обработчки нажатий кнопок в меню настроек.
+@bot.on(events.CallbackQuery(pattern=r'^close/'))
+async def close_button(event: events.CallbackQuery.Event):
+    '''Обработчик нажатия кнопки "Закрыть".
+    
+    Удаляет сообщение с данной кнопкой, если удаление невозможно -
+    показывает всплывающее сообщение об этом.
+    '''
+    button_message = await event.get_message()
+    try:
+        await button_message.delete()
+    except:
+        await event.answer('\U00002757 Невозможно скрыть сообщение...')
+
 @bot.on(events.CallbackQuery(pattern=r'^stat/'))
 async def show_stat(event: events.CallbackQuery.Event):
     '''Обработчик нажатия кнопки "Статистика".
@@ -190,19 +329,6 @@ async def show_stat(event: events.CallbackQuery.Event):
     await chat.save()
     text, keyboard = templates.stat_message(chat_id, chat_title, chat)
     await button_message.edit(text=text, buttons=keyboard)
-
-@bot.on(events.CallbackQuery(pattern=r'^close/'))
-async def close_button(event: events.CallbackQuery.Event):
-    '''Обработчик нажатия кнопки "Закрыть".
-    
-    Удаляет сообщение с данной кнопкой, если удаление невозможно -
-    показывает всплывающее сообщение об этом.
-    '''
-    button_message = await event.get_message()
-    try:
-        await button_message.delete()
-    except:
-        await event.answer('\U00002757 Невозможно скрыть сообщение...')
     
 @bot.on(events.CallbackQuery(pattern=r'^back_to_set/'))
 async def back_to_set(event: events.CallbackQuery.Event):
@@ -330,128 +456,8 @@ async def filter_mode_change(event: events.CallbackQuery.Event):
         await chat.save()
     text, keyboard = templates.settings_message(chat_id, chat_title, chat)
     await button_message.edit(text=text, buttons=keyboard)
-        
-@admin_command('greet')
-async def greet_command(event: Message):
-    await event.respond('Привет, хозяин!')
-    
-@admin_command('listword')
-async def show_list_word(event: Message):
-    '''Обработчик комады вывода списка плохих слов.
-    
-    В текущей версии выводит в группу количество слов в базе и предлагает ввести
-    начальные буквы в ответном сообщении. При получении отправляет в ЛС список слов,
-    начинающихся с введенных букв или сообщает об отсутствии таких слов.
-    to do: доработать процесс чтобы работа со словарем проводилась в настройках.
-    '''
-    word_list = await get_words()
-    await event.respond(f'''В списке {len(word_list)} {agree_word('слово', len(word_list))}.''')
-    await event.respond('Введите начальные буквы в ответном сообщении для вывода ограниченного количества слов:')
-    
-    @bot.on(events.NewMessage(func=lambda e: e.is_group))
-    async def word_list_filter(event: Message):
-        if event.is_reply:
-            reply_to = await event.get_reply_message()
-            if reply_to.sender.bot:
-                word_list_cut = \
-                    await Slang.filter(word__startswith=event.text.lower()).values_list('word', flat=True)
-                
-                if not word_list_cut:
-                    await event.respond(f'В списке нет слов, начинающихся на "{event.text}"')
-                    await event.respond('Добавить слово можно при помощи команды /addword.')
-                    bot.remove_event_handler(word_list_filter, events.NewMessage)
-                    return
-                
-                await bot.send_message(event.sender_id, ', '.join(word_list_cut))
-                await event.respond('Список слов направлен Вам в ЛС.')
-                await event.respond('Удалить слово можно при помощи команды /delword.')
-                await event.respond('Добавить слово можно при помощи команды /addword.')
-                
-                bot.remove_event_handler(word_list_filter, events.NewMessage)
 
-@admin_command('addword')
-async def add_word(event: Message):
-    '''Обработчик комады добавления плохого слова в список.
-    
-    В текущей версии предлагает в ответном сообщении ввести слово, которое необходимо
-    добавить, при получении ответного сообщения нормализует слово и добавляет в базу.
-    to do: доработать процесс чтобы работа со словарем проводилась в настройках.
-    '''
-    await event.respond('В ответном сообщении напишите слово, которое нужно добавить.')
-    
-    @bot.on(events.NewMessage(func=lambda e: e.is_group))
-    async def normalise_and_load(event: Message):
-        if event.is_reply:
-            reply_to = await event.get_reply_message()
-            if reply_to.sender.bot:
-                morph = pymorphy2.MorphAnalyzer()
-                normal_word = morph.parse(event.text.lower())[0].normal_form
-                await update_slang(normal_word)
-                await event.respond(f'Слово {event.text} добавлено в словарь.')
-                
-                bot.remove_event_handler(normalise_and_load, events.NewMessage)
-
-@admin_command('delword')
-async def del_word(event: Message):
-    '''Обработчик комады удаления плохого слова из списка.
-    
-    В текущей версии предлагает в ответном сообщении ввести слово, которое необходимо
-    удалить, при получении ответного сообщения пытается удалить слово из базы.
-    to do: доработать процесс чтобы работа со словарем проводилась в настройках.
-    '''
-    await event.respond('В ответном сообщении напишите слово, которое хотите удалить.')
-    
-    @bot.on(events.NewMessage(func=lambda e: e.is_group))
-    async def lower_and_del(event: Message):
-        if event.is_reply:
-            reply_to = await event.get_reply_message()
-            if reply_to.sender.bot:
-                del_result = await del_from_slang(event.text.lower())
-                if del_result:
-                    await event.respond(f'Слово "{event.text}" удалено из словаря.')
-                else:
-                    await event.respond(f'В словаре нет слова "{event.text}".')
-        
-                bot.remove_event_handler(lower_and_del, events.NewMessage)
-                
-@admin_command('help')
-async def show_help(event: Message):
-    '''Обработчик команды помощи.
-    
-    В текущей версии реагирует только на команды админа, посылая ему в ЛС
-    сообщение со справкой.
-    to do: доработать функцию выведя формирование сообщения в отдельный модуль,
-    команду сделать для всех, сообщение формировать в зависимости от того,
-    является ли пользователь админом.
-    '''
-    text = "Вы можете использовать следующие команды, отвечая на сообщения пользователя:\n \
-    /mute и /unmute - запретить/разрешить пользователю писать;\n \
-    /ban и /unban - забанить/разбанить пользователя;\n \
-    /kick - исключить пльзователя из чата;\n \
-    /warn и /unwarn - предупредить/снять предупреждение с пользователя.\n \
-    \nСледующие команды не требуют цитирования:\n \
-    /settings - настроить бота (управление настройками в ЛС)."
-    try:
-        await bot.send_message(event.sender_id, text)
-    except Exception as Ex:
-        handlers_log.error(f'/help: Произошла ошибка при отправке сообщения {event.sender.first_name}.')
-        handlers_log.error(Ex)
-    await event.respond('Список команд направлен Вам в ЛС.')
-
-@admin_command('settings')
-async def show_settings(event: Message):
-    '''При получении команды /settings направляет в ЛС сообщение с настройками.'''
-    chat_id = event.chat.id
-    chat_title = event.chat.title
-    chat = await Chat.get(id=chat_id)
-    text, keyboard = templates.settings_message(chat_id, chat_title, chat)
-    await event.reply('Перейдите в ЛС для настройки бота.')
-    try:
-        await bot.send_message(event.sender_id, text, buttons=keyboard)
-    except Exception as Ex:
-        handlers_log.error(f'/settings: Произошла ошибка при отправке сообщения {event.sender.first_name}.')
-        handlers_log.error(Ex)
-
+# Обработчики админских модерирующих команд в чате.
 @admin_moderate_command('mute')
 async def mute_command(chat_id: int, user_id: int, mention: str):
     await bot.edit_permissions(chat_id, user_id, send_messages=False)
