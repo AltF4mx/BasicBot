@@ -2,6 +2,19 @@ from telethon.tl.custom import Button
 
 from app.utils import agree_word
 
+def developer_menu():
+    text = 'Меню разработчика:'
+    keyboard = [
+        [
+            Button.inline('\U0001F4C4  Прислать лог.', 'send_log/')
+        ],
+        [
+            Button.inline('\U0000274C  Закрыть', 'close/')
+        ]
+    ]
+    return text, keyboard
+
+
 def settings_message(chat_id: str, chat_title: str, chat):
     chat_id, chat_title, chat = chat_id, chat_title, chat
     text = f'Настройки для группы {chat_title}:'

@@ -21,6 +21,8 @@ from app.utils import warn, unwarn, get_mention, agree_word
 from app.models import Chat, ChatMember, Slang
 from app.slang_checker import RegexpProc, PymorphyProc, get_words
 
+import config
+
 handlers_log = logging.getLogger('TGDroidModer.handlers')
 
 @bot.on(events.ChatAction())
@@ -86,6 +88,24 @@ async def reload_command(event: Message):
     '''Обработка команды обновления списка админов.'''
     await reload_admins(event.chat.id)
     await event.respond('Список админов группы обновлен.')
+
+@bot.on(events.NewMessage(func=lambda e: e.text.lower() == '/dev_menu' and e.is_private))
+async def developer_menu_command(event: Message):
+    '''Отправляет меню разработчика только мне.'''
+    if event.sender.id == config.DEV_ID:
+        text, keyboard = templates.developer_menu()
+        await bot.send_message(event.sender.id, text, buttons=keyboard)
+    else:
+        handlers_log.warning(f'Внимание! Пользователь {event.sender.first_name} ввел девелоперскую команду!')
+        
+@bot.on(events.CallbackQuery(pattern=r'^send_log/'))
+async def close_button(event: events.CallbackQuery.Event):
+    '''Обработчик нажатия кнопки "Прислать лог".'''
+    try:
+        await bot.send_file(event.sender_id, 'basicbot.log')
+    except Exception as Ex:
+        await event.answer('Произошла ошибка при отправке, подробности в логе...', alert=True)
+        handlers_log.error(Ex)
     
 @bot.on(events.NewMessage(func=lambda e: e.text.lower() == '/uplwords' and e.is_group))
 async def upload_words(event: Message):
@@ -142,7 +162,11 @@ async def show_bad_text(event: events.CallbackQuery.Event):
     button_message = await event.get_message()
     if sender.is_admin:
         text = event.data.decode('UTF-8').replace('censored/','', 1)
-        await bot.send_message(event.sender_id, text)
+        try:
+            await bot.send_message(event.sender_id, text)
+        except Exception as Ex:
+            handlers_log.error(f'censored/: Произошла ошибка при отправке сообщения {event.sender.first_name}.')
+            handlers_log.error(Ex)
         await event.answer('Текст сообщения направлен в ЛС.')
         await button_message.edit(buttons=None)
     else:
@@ -407,7 +431,11 @@ async def show_help(event: Message):
     /warn и /unwarn - предупредить/снять предупреждение с пользователя.\n \
     \nСледующие команды не требуют цитирования:\n \
     /settings - настроить бота (управление настройками в ЛС)."
-    await bot.send_message(event.sender_id, text)
+    try:
+        await bot.send_message(event.sender_id, text)
+    except Exception as Ex:
+        handlers_log.error(f'/help: Произошла ошибка при отправке сообщения {event.sender.first_name}.')
+        handlers_log.error(Ex)
     await event.respond('Список команд направлен Вам в ЛС.')
 
 @admin_command('settings')
@@ -418,7 +446,11 @@ async def show_settings(event: Message):
     chat = await Chat.get(id=chat_id)
     text, keyboard = templates.settings_message(chat_id, chat_title, chat)
     await event.reply('Перейдите в ЛС для настройки бота.')
-    await bot.send_message(event.sender_id, text, buttons=keyboard)
+    try:
+        await bot.send_message(event.sender_id, text, buttons=keyboard)
+    except Exception as Ex:
+        handlers_log.error(f'/settings: Произошла ошибка при отправке сообщения {event.sender.first_name}.')
+        handlers_log.error(Ex)
 
 @admin_moderate_command('mute')
 async def mute_command(chat_id: int, user_id: int, mention: str):
