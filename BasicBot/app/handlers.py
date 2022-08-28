@@ -8,6 +8,7 @@ from datetime import timedelta
 from tortoise import timezone
 from telethon.tl.custom import Message
 from telethon.tl.custom import Button
+from telethon.errors import UserIsBlockedError, PeerIdInvalidError
 
 from app import bot, templates
 from app.utils import reload_admins
@@ -145,20 +146,23 @@ async def show_bad_text(event: events.CallbackQuery.Event):
     '''
     sender = await ChatMember.get_or_none(chat_id=event.chat.id, user_id=event.sender_id)
     button_message = await event.get_message()
-    if sender.is_admin:
+    if sender and sender.is_admin:
         text = event.data.decode('UTF-8').replace('censored/','', 1)
         try:
             await bot.send_message(event.sender_id, text)
-        except Exception as Ex:
+        except PeerIdInvalidError as Ex:
             handlers_log.error(f'censored/: Произошла ошибка при отправке сообщения {event.sender.first_name}.')
             handlers_log.error(Ex)
-        await event.answer('Текст сообщения направлен в ЛС.')
-        await button_message.edit(buttons=None)
+            await event.answer('Я не могу писать пользователям первый, начни чат со мной и я смогу отправлять сообщения.', \
+                               alert=True)
+        else:
+            await event.answer('Текст сообщения направлен в ЛС.')
+            await button_message.edit(buttons=None)
     else:
         await event.answer('Только для админов!', alert=True)
         handlers_log.warning(f'Участник {event.sender.first_name} группы "{event.chat.title}" нажал кнопку показать.')
 
-# Обработчики чсужебных команд и команд первоначальной настройки.
+# Обработчики служебных команд и команд первоначальной настройки.
 @bot.on(events.NewMessage(func=lambda e: e.text.lower() == '/reload' and e.is_group))
 async def reload_command(event: Message):
     '''Обработка команды обновления списка админов.'''
@@ -291,12 +295,14 @@ async def show_settings(event: Message):
     chat_title = event.chat.title
     chat = await Chat.get(id=chat_id)
     text, keyboard = templates.settings_message(chat_id, chat_title, chat)
-    await event.reply('Перейдите в ЛС для настройки бота.')
     try:
         await bot.send_message(event.sender_id, text, buttons=keyboard)
-    except Exception as Ex:
+    except UserIsBlockedError as Ex:
         handlers_log.error(f'/settings: Произошла ошибка при отправке сообщения {event.sender.first_name}.')
         handlers_log.error(Ex)
+        await event.reply('Вы заблокировали/остановили бота. Для доступа к настройкам - разблокируйте/перезапустите.')
+    else:
+        await event.reply('Перейдите в ЛС для настройки бота.')
 
 # Обработчки нажатий кнопок в меню настроек.
 @bot.on(events.CallbackQuery(pattern=r'^close/'))
