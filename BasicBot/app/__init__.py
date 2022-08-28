@@ -1,6 +1,6 @@
 import logging
 from telethon import TelegramClient
-import config
+from data import config
 
 from tortoise import Tortoise
 

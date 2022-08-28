@@ -15,7 +15,7 @@ from telethon.tl.types import User
 from app import bot
 from app.models import Chat, ChatMember, Slang
 
-import config
+from data import config
 
 morph = pymorphy2.MorphAnalyzer()
 utils_log = logging.getLogger('TGDroidModer.utils')

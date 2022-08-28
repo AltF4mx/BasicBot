@@ -21,7 +21,7 @@ from app.utils import warn, unwarn, get_mention, agree_word
 from app.models import Chat, ChatMember, Slang
 from app.slang_checker import RegexpProc, PymorphyProc, get_words
 
-import config
+from data import config
 
 handlers_log = logging.getLogger('TGDroidModer.handlers')
 
@@ -74,7 +74,7 @@ async def on_join(event: events.ChatAction.Event):
         chat.users_kicked = 0
         chat.users_banned = 0
         await chat.save()
-        handlers_log.info(f'Успешно вступил в группу {event.chat.title}, {chat.users} {agree_word("участник", chat.users)}.')
+        handlers_log.info(f'Успешно вступил в группу "{event.chat.title}", {chat.users} {agree_word("участник", chat.users)}.')
 
 @bot.on(events.ChatAction(func=lambda e: (e.user_added or e.user_joined) and e.user_id != bot.me.id))
 async def greet(event: events.ChatAction.Event):
@@ -101,7 +101,7 @@ async def greet(event: events.ChatAction.Event):
     chat.users = len(users)
     await chat.save()
     await reload_admins(event.chat.id)
-    handlers_log.info(f'В группе {event.chat.title} новый участник {event.user.first_name} ({chat.users}).')
+    handlers_log.info(f'В группе "{event.chat.title}" новый участник {event.user.first_name} ({chat.users}).')
 
 @bot.on(events.NewMessage(func=lambda e: e.is_group))
 async def new_message(event: Message):
@@ -156,7 +156,7 @@ async def show_bad_text(event: events.CallbackQuery.Event):
         await button_message.edit(buttons=None)
     else:
         await event.answer('Только для админов!', alert=True)
-        handlers_log.warning(f'Участник {event.sender.first_name} группы {event.chat.title} нажал кнопку показать.')
+        handlers_log.warning(f'Участник {event.sender.first_name} группы "{event.chat.title}" нажал кнопку показать.')
 
 # Обработчики чсужебных команд и команд первоначальной настройки.
 @bot.on(events.NewMessage(func=lambda e: e.text.lower() == '/reload' and e.is_group))
@@ -449,7 +449,7 @@ async def filter_mode_change(event: events.CallbackQuery.Event):
     elif chat.filter_enable and chat.filter_mode == 'pattern':
         chat.filter_enable = False
         await chat.save()
-        handlers_log.warning(f'Админ группы {chat_title} {event.sender.firts_name} отключил матфильтр.')
+        handlers_log.warning(f'Админ группы "{chat_title}" {event.sender.first_name} отключил матфильтр.')
     else:
         chat.filter_enable = True
         chat.filter_mode = 'dict'
