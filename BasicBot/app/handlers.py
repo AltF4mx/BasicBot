@@ -155,6 +155,11 @@ async def show_bad_text(event: events.CallbackQuery.Event):
             handlers_log.error(Ex)
             await event.answer('Я не могу писать пользователям первый, начни чат со мной и я смогу отправлять сообщения.', \
                                alert=True)
+        except UserIsBlockedError as Ex:
+            handlers_log.error(f'censored/: Произошла ошибка при отправке сообщения {event.sender.first_name}.')
+            handlers_log.error(Ex)
+            await event.answer('Вы остановили или заблокировали бота. Для получения сообщений - перезапустите/разблокируйте.', \
+                               alert=True)
         else:
             await event.answer('Текст сообщения направлен в ЛС.')
             await button_message.edit(buttons=None)
@@ -283,10 +288,18 @@ async def show_help(event: Message):
     /settings - настроить бота (управление настройками в ЛС)."
     try:
         await bot.send_message(event.sender_id, text)
-    except Exception as Ex:
-        handlers_log.error(f'/help: Произошла ошибка при отправке сообщения {event.sender.first_name}.')
+    except PeerIdInvalidError as Ex:
+        handlers_log.error(f'censored/: Произошла ошибка при отправке сообщения {event.sender.first_name}.')
         handlers_log.error(Ex)
-    await event.respond('Список команд направлен Вам в ЛС.')
+        await event.answer('Я не могу писать пользователям первый, начни чат со мной и я смогу отправлять сообщения.', \
+                           alert=True)
+    except UserIsBlockedError as Ex:
+        handlers_log.error(f'censored/: Произошла ошибка при отправке сообщения {event.sender.first_name}.')
+        handlers_log.error(Ex)
+        await event.answer('Вы остановили или заблокировали бота. Для получения сообщений - перезапустите/разблокируйте.', \
+                           alert=True)
+    else:
+        await event.respond('Список команд направлен Вам в ЛС.')
 
 @admin_command('settings')
 async def show_settings(event: Message):
