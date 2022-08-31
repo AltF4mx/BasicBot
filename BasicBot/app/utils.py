@@ -153,7 +153,7 @@ async def warn(chat_id: int, user_id: int, mention: str):
     warns_num = chat.warns_number
     warns = min(warns + 1, warns_num)
     morph = pymorphy2.MorphAnalyzer()
-    warns_word = morph.parse('предупреждение')[0].make_agree_with_number(warns).word
+    warns_word = agree_word('предупреждение', warns)
     await update_chat_member(chat_id, user_id, warns=warns)
     penalty = {
         'mute': mute,

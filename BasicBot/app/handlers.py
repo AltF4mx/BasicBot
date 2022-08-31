@@ -134,6 +134,20 @@ async def new_message(event: Message):
                 await event.respond(message, buttons=Button.inline('Показать сообщение?', \
                                                                    'censored/'+event.text))
                 await event.delete()
+                
+@bot.on(events.NewMessage(pattern=r'^\d?\d?\d?\d?$|^\d?\d?\d?$', func=lambda e: e.is_group))
+async def time_message(event: Message):
+    time = timezone.now().strftime('%H%M')
+    if len(event.text) == 4:
+        if event.text == time:
+            if time[:2] == time[2:]:
+                await event.reply('Ты звезда!!! \U00002728')
+            else:
+                await event.reply(f'Молодец!!! \U0000270C')
+    else:
+        if event.text == time[1:]:
+            await event.reply('Молодец!!! \U0000270C')
+
 
 @bot.on(events.CallbackQuery(pattern=r'^censored/'))
 async def show_bad_text(event: events.CallbackQuery.Event):
@@ -285,7 +299,8 @@ async def show_help(event: Message):
     /kick - исключить пльзователя из чата;\n \
     /warn и /unwarn - предупредить/снять предупреждение с пользователя.\n \
     \nСледующие команды не требуют цитирования:\n \
-    /settings - настроить бота (управление настройками в ЛС)."
+    /settings - настроить бота (управление настройками в ЛС);\n \
+    /reload - обновить список админов (если недавно сделал кого-то админом, а бот его не слушается)."
     try:
         await bot.send_message(event.sender_id, text)
     except PeerIdInvalidError as Ex:

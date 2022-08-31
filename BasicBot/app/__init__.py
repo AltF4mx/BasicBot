@@ -35,6 +35,7 @@ TORTOISE_ORM = {
             'default_connection': 'default',
         },
     },
+    'timezone': 'Asia/Novosibirsk'
 }
 
 async def start():
